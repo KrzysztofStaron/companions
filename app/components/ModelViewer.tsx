@@ -153,6 +153,8 @@ export default function ModelViewer() {
   const [currentAnimationIndex, setCurrentAnimationIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [cameraDistance, setCameraDistance] = useState(5);
+  const [searchTerm, setSearchTerm] = useState("");
+  const orbitControlsRef = useRef<any>(null);
 
   const nextAnimation = () => {
     const nextIndex = (currentAnimationIndex + 1) % ANIMATION_NAMES.length;
@@ -194,11 +196,21 @@ export default function ModelViewer() {
   };
 
   const zoomIn = () => {
-    setCameraDistance(prev => Math.max(1, prev - 1));
+    if (orbitControlsRef.current) {
+      const newDistance = Math.max(1, cameraDistance - 1);
+      setCameraDistance(newDistance);
+      orbitControlsRef.current.dollyIn(1.5);
+      orbitControlsRef.current.update();
+    }
   };
 
   const zoomOut = () => {
-    setCameraDistance(prev => Math.min(20, prev + 1));
+    if (orbitControlsRef.current) {
+      const newDistance = Math.min(20, cameraDistance + 1);
+      setCameraDistance(newDistance);
+      orbitControlsRef.current.dollyOut(1.5);
+      orbitControlsRef.current.update();
+    }
   };
 
   return (
@@ -213,7 +225,15 @@ export default function ModelViewer() {
         <AvatarAnimator />
 
         {/* Controls */}
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} autoRotate={false} />
+        <OrbitControls
+          ref={orbitControlsRef}
+          enablePan={true}
+          enableZoom={true}
+          enableRotate={true}
+          autoRotate={false}
+          minDistance={1}
+          maxDistance={20}
+        />
 
         {/* Environment for better reflections */}
         <Environment preset="city" />
@@ -283,23 +303,47 @@ export default function ModelViewer() {
       {/* Animation List */}
       <div className="absolute bottom-4 left-4 text-white z-10 max-w-md">
         <h3 className="text-lg font-semibold mb-2">Available Animations:</h3>
-        <div className="grid grid-cols-2 gap-1 text-sm">
-          {ANIMATION_NAMES.map((name, index) => (
-            <div
-              key={index}
-              className={`p-2 rounded cursor-pointer transition-colors ${
-                index === currentAnimationIndex ? "bg-blue-600 text-white" : "bg-slate-700 hover:bg-slate-600"
-              }`}
-              onClick={() => {
-                setCurrentAnimationIndex(index);
-                if ((window as any).playAnimation) {
-                  (window as any).playAnimation(index);
-                }
-              }}
-            >
-              {name}
-            </div>
-          ))}
+
+        {/* Search Input */}
+        <div className="mb-3">
+          <input
+            type="text"
+            placeholder="Search animations..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        <div className="max-h-48 overflow-y-auto pr-2">
+          <div className="grid grid-cols-2 gap-1 text-sm">
+            {ANIMATION_NAMES.filter(
+              (name, index) =>
+                searchTerm === "" ||
+                name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                index === currentAnimationIndex // Always show current animation
+            ).map((name, index) => {
+              const originalIndex = ANIMATION_NAMES.indexOf(name);
+              return (
+                <div
+                  key={originalIndex}
+                  className={`p-2 rounded cursor-pointer transition-colors ${
+                    originalIndex === currentAnimationIndex
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-700 hover:bg-slate-600"
+                  }`}
+                  onClick={() => {
+                    setCurrentAnimationIndex(originalIndex);
+                    if ((window as any).playAnimation) {
+                      (window as any).playAnimation(originalIndex);
+                    }
+                  }}
+                >
+                  {name}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
