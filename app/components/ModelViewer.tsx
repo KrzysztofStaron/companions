@@ -15,9 +15,16 @@ interface AnimationData {
   name: string;
   clip: THREE.AnimationClip;
   duration: number;
+  path: string;
 }
 
-function AvatarAnimator() {
+function AvatarAnimator({
+  onError,
+  onLoadingChange,
+}: {
+  onError?: (error: string | null) => void;
+  onLoadingChange?: (loading: boolean) => void;
+}) {
   const { scene: characterScene } = useGLTF(CHARACTER_MODEL);
   const modelRef = useRef<THREE.Group>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
@@ -28,6 +35,15 @@ function AvatarAnimator() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Notify parent of error and loading state changes
+  useEffect(() => {
+    onError?.(error);
+  }, [error, onError]);
+
+  useEffect(() => {
+    onLoadingChange?.(isLoading);
+  }, [isLoading, onLoadingChange]);
+
   // Load all animations
   useEffect(() => {
     async function loadAnimations() {
@@ -35,6 +51,7 @@ function AvatarAnimator() {
       setError(null);
 
       try {
+        console.log("Starting to load animations...");
         const loadedAnimations: AnimationData[] = [];
         const loader = new GLTFLoader();
 
@@ -42,7 +59,7 @@ function AvatarAnimator() {
         for (let i = 0; i < ANIMATION_FILES.length; i++) {
           try {
             const gltf = await new Promise<any>((resolve, reject) => {
-              loader.load(ANIMATION_FILES[i], resolve, undefined, reject);
+              loader.load(ANIMATION_FILES[i].path, resolve, undefined, reject);
             });
 
             if (gltf.animations && gltf.animations.length > 0) {
@@ -52,23 +69,39 @@ function AvatarAnimator() {
                 name: ANIMATION_NAMES[i],
                 clip: clip,
                 duration: clip.duration,
+                path: ANIMATION_FILES[i].path,
               });
             }
           } catch (err) {
-            console.warn(`Failed to load animation ${ANIMATION_FILES[i]}:`, err);
+            console.warn(`Failed to load animation ${ANIMATION_FILES[i].path}:`, err);
           }
         }
 
+        console.log(`Loaded ${loadedAnimations.length} animations`);
         setAnimations(loadedAnimations);
 
         // Set up animation mixer
         if (characterScene) {
+          console.log("Setting up animation mixer...");
           mixerRef.current = new THREE.AnimationMixer(characterScene);
 
-          // Play first animation if available
-          if (loadedAnimations.length > 0) {
+          // Find and play an idle animation by default
+          const idleIndex = loadedAnimations.findIndex(
+            anim => anim.name.toLowerCase().includes("idle") && anim.name.toLowerCase().includes("masculine")
+          );
+
+          if (idleIndex !== -1) {
+            console.log(`Playing idle animation: ${loadedAnimations[idleIndex].name}`);
+            playAnimation(idleIndex);
+            setCurrentAnimationIndex(idleIndex);
+          } else if (loadedAnimations.length > 0) {
+            // Fallback to first animation if no idle found
+            console.log(`Playing first animation: ${loadedAnimations[0].name}`);
             playAnimation(0);
           }
+        } else {
+          console.error("Character scene is null!");
+          setError("Character scene failed to load");
         }
       } catch (err) {
         setError("Failed to load animations");
@@ -129,15 +162,6 @@ function AvatarAnimator() {
     setCurrentAnimationIndex(index);
   };
 
-  // Expose animation functions to parent component
-  useEffect(() => {
-    // This allows the parent component to control animations
-    (window as any).playAnimation = playAnimation;
-    (window as any).playAnimationOnce = playAnimationOnce;
-    (window as any).stopAnimation = stopAnimation;
-    (window as any).ANIMATION_NAMES = ANIMATION_NAMES;
-  }, [animations]);
-
   // Function to stop all animations
   const stopAnimation = () => {
     if (currentActionRef.current) {
@@ -151,6 +175,44 @@ function AvatarAnimator() {
     if (animations.length === 0) return;
     const randomIndex = Math.floor(Math.random() * animations.length);
     playAnimation(randomIndex);
+  };
+
+  // Function to play animation by description
+  const playAnimationByDescription = (description: string) => {
+    // Simple matching: look for key words in the description
+    const descriptionLower = description.toLowerCase();
+
+    // Find animation by matching key words
+    const animationIndex = animations.findIndex(anim => {
+      const nameLower = anim.name.toLowerCase();
+      const pathLower = anim.path.toLowerCase();
+
+      // Check if the description contains key words that match the animation
+      if (descriptionLower.includes("feminine") && pathLower.includes("/feminine/")) return true;
+      if (descriptionLower.includes("masculine") && pathLower.includes("/masculine/")) return true;
+      if (descriptionLower.includes("idle") && nameLower.includes("idle")) return true;
+      if (descriptionLower.includes("dance") && nameLower.includes("dance")) return true;
+      if (descriptionLower.includes("run") && nameLower.includes("run")) return true;
+      if (descriptionLower.includes("walk") && nameLower.includes("walk")) return true;
+      if (descriptionLower.includes("jog") && nameLower.includes("jog")) return true;
+      if (descriptionLower.includes("talk") && nameLower.includes("talk")) return true;
+      if (descriptionLower.includes("expression") && nameLower.includes("expression")) return true;
+
+      return false;
+    });
+
+    if (animationIndex !== -1) {
+      console.log(`Found animation for description "${description}": ${animations[animationIndex].name}`);
+      playAnimation(animationIndex);
+      return true;
+    } else {
+      console.warn(`Animation with description "${description}" not found`);
+      console.log(
+        "Available animations:",
+        animations.map(a => a.name)
+      );
+      return false;
+    }
   };
 
   // Update animation mixer on each frame
@@ -169,6 +231,17 @@ function AvatarAnimator() {
     };
   }, []);
 
+  // Expose animation functions to parent component
+  useEffect(() => {
+    // This allows the parent component to control animations
+    (window as any).playAnimation = playAnimation;
+    (window as any).playAnimationOnce = playAnimationOnce;
+    (window as any).stopAnimation = stopAnimation;
+    (window as any).playAnimationByDescription = playAnimationByDescription;
+    (window as any).ANIMATION_NAMES = ANIMATION_NAMES;
+    (window as any).animations = animations;
+  }, [animations]);
+
   return (
     <>
       {/* Invisible ground plane to create clean cutoff */}
@@ -176,7 +249,17 @@ function AvatarAnimator() {
         <planeGeometry args={[100, 100]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
-      <primitive ref={modelRef} object={characterScene} scale={[1, 1, 1]} position={[0, -2, 0]} />
+
+      {/* Character model with proper positioning and scaling */}
+      {characterScene && (
+        <primitive
+          ref={modelRef}
+          object={characterScene}
+          scale={[1, 1, 1]}
+          position={[0, -2, 0]}
+          rotation={[0, 0, 0]}
+        />
+      )}
     </>
   );
 }
@@ -187,6 +270,8 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
   const [cameraDistance, setCameraDistance] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
   const orbitControlsRef = useRef<any>(null);
+  const [animationError, setAnimationError] = useState<string | null>(null);
+  const [animationLoading, setAnimationLoading] = useState(true);
 
   const nextAnimation = () => {
     const nextIndex = (currentAnimationIndex + 1) % ANIMATION_NAMES.length;
@@ -254,7 +339,7 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
         <pointLight position={[-10, -10, -5]} intensity={0.5} />
 
         {/* Avatar with Animator */}
-        <AvatarAnimator />
+        <AvatarAnimator onError={setAnimationError} onLoadingChange={setAnimationLoading} />
 
         {/* Controls */}
         <OrbitControls
@@ -273,6 +358,15 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
 
       {/* Background overlay to hide everything below the model */}
       <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none"></div>
+
+      {/* Animation System Debug Info - Outside Canvas */}
+      {animationError && (
+        <div className="absolute top-4 left-4 text-red-500 bg-black/50 p-2 rounded z-50">Error: {animationError}</div>
+      )}
+
+      {animationLoading && (
+        <div className="absolute top-4 left-4 text-yellow-500 bg-black/50 p-2 rounded z-50">Loading animations...</div>
+      )}
 
       {/* Overlay text - Only visible when debug is enabled */}
       {showDebugUI && (
@@ -334,6 +428,25 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
                 −
               </button>
             </div>
+          </div>
+
+          {/* Test Animation System */}
+          <div className="border-t border-slate-600 pt-2 mt-2">
+            <div className="text-xs text-slate-400 mb-1 text-center">Test</div>
+            <button
+              onClick={() => {
+                if ((window as any).playAnimationByDescription) {
+                  const success = (window as any).playAnimationByDescription(
+                    "Feminine idle with gentle weight shifting and relaxed posture"
+                  );
+                  console.log("Test animation result:", success);
+                }
+              }}
+              className="w-full bg-orange-600 hover:bg-orange-700 px-3 py-2 rounded-lg font-medium transition-colors text-sm"
+              title="Test Animation System"
+            >
+              Test Animation
+            </button>
           </div>
         </div>
       )}

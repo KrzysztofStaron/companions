@@ -12,7 +12,7 @@ export interface ChatMessage {
 }
 
 export interface AnimationRequest {
-  animationName: string;
+  animationDescription: string;
   reason: string;
 }
 
@@ -28,9 +28,9 @@ export async function chatWithAI(
 
 Available animations: ${availableAnimations.join(", ")}
 
-When you want the character to perform an animation, use the request_animation tool. Always return to idle after any animation.
+When you want the character to perform an animation, use the request_animation tool. Choose the animation that best fits the context and emotion you want to convey. Always return to idle after any animation.
 
-Be conversational, helpful, and use animations to enhance your responses. Keep responses concise and engaging.`
+Be conversational, helpful, and use animations to enhance your responses. Keep responses concise and engaging.`,
     };
 
     // Add system message to the beginning
@@ -48,19 +48,20 @@ Be conversational, helpful, and use animations to enhance your responses. Keep r
             parameters: {
               type: "object",
               properties: {
-                animationName: {
+                animationDescription: {
                   type: "string",
-                  description: "The exact name of the animation to play"
+                  description:
+                    "The exact description of the animation to play (must match one from the available animations list)",
                 },
                 reason: {
                   type: "string",
-                  description: "Why you want to play this animation"
-                }
+                  description: "Why you want to play this animation",
+                },
               },
-              required: ["animationName", "reason"]
-            }
-          }
-        }
+              required: ["animationDescription", "reason"],
+            },
+          },
+        },
       ],
       tool_choice: "auto",
     });
@@ -71,12 +72,12 @@ Be conversational, helpful, and use animations to enhance your responses. Keep r
     // Check if the AI wants to play an animation
     if (message.tool_calls && message.tool_calls.length > 0) {
       const toolCall = message.tool_calls[0];
-      if (toolCall.function.name === "request_animation") {
+      if (toolCall.type === "function" && toolCall.function.name === "request_animation") {
         try {
           const args = JSON.parse(toolCall.function.arguments);
           animationRequest = {
-            animationName: args.animationName,
-            reason: args.reason
+            animationDescription: args.animationDescription,
+            reason: args.reason,
           };
         } catch (error) {
           console.error("Error parsing animation request:", error);
@@ -96,7 +97,7 @@ Be conversational, helpful, and use animations to enhance your responses. Keep r
 
         // Convert the audio to base64 for embedding
         const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-        const base64Audio = audioBuffer.toString('base64');
+        const base64Audio = audioBuffer.toString("base64");
         audioUrl = `data:audio/mp3;base64,${base64Audio}`;
       } catch (error) {
         console.error("Error generating TTS:", error);
@@ -106,10 +107,27 @@ Be conversational, helpful, and use animations to enhance your responses. Keep r
     return {
       response: message.content || "",
       animationRequest,
-      audioUrl
+      audioUrl,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in AI chat:", error);
+
+    // Check if it's a network connectivity issue
+    if (error.cause?.code === "EAI_AGAIN" || error.message?.includes("fetch failed")) {
+      return {
+        response:
+          "I'm having trouble connecting to my AI services right now. This might be due to network issues or the service being temporarily unavailable. You can still use the debug controls to test animations manually!",
+      };
+    }
+
+    // Check if it's an API key issue
+    if (error.status === 401) {
+      return {
+        response: "I'm having trouble authenticating with my AI services. Please check your API configuration.",
+      };
+    }
+
+    // Generic error response
     return {
       response: "I'm sorry, I encountered an error. Please try again.",
     };

@@ -2,46 +2,104 @@
 
 import ModelViewer from "./components/ModelViewer";
 import LiquidGlass from "./components/ui/LiquidGlass";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { AnimationRequest, chatWithAI, ChatMessage } from "./actions/chat";
+import { getAvailableAnimationsForLLM } from "./components/animation-loader";
 
 export default function Home() {
   const [showDebugUI, setShowDebugUI] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [availableAnimations, setAvailableAnimations] = useState<string[]>([]);
+  const [animationSystemReady, setAnimationSystemReady] = useState(false);
 
-  const handleInputSubmit = () => {
-    if (inputValue.trim()) {
-      console.log("Input submitted:", inputValue);
+  // Get available animations for the LLM
+  useEffect(() => {
+    setAvailableAnimations(getAvailableAnimationsForLLM());
+  }, []);
 
-      // Play the specific dance animation
-      if ((window as any).playAnimation) {
-        // Find the index of "Dance M F_Dances_007" in the animation names
-        const danceIndex = (window as any).ANIMATION_NAMES?.findIndex(
-          (name: string) => name === "Dance M F_Dances_007"
-        );
+  // Wait for animation system to be ready
+  useEffect(() => {
+    const checkAnimationSystem = () => {
+      console.log("Checking animation system...", {
+        playAnimationByDescription: !!(window as any).playAnimationByDescription,
+        ANIMATION_NAMES: !!(window as any).ANIMATION_NAMES,
+        playAnimation: !!(window as any).playAnimation,
+      });
 
-        if (danceIndex !== -1) {
-          // Play the dance animation
-          (window as any).playAnimation(danceIndex);
+      if ((window as any).playAnimationByDescription && (window as any).ANIMATION_NAMES) {
+        setAnimationSystemReady(true);
+        console.log("Animation system ready");
+      } else {
+        setTimeout(checkAnimationSystem, 100);
+      }
+    };
+    checkAnimationSystem();
+  }, []);
 
-          // Get the animation duration from the global animations array
-          const danceDuration = (window as any).animations?.[danceIndex]?.duration || 5;
+  const handleInputSubmit = async () => {
+    if (inputValue.trim() && !isLoading && animationSystemReady) {
+      const userMessage: ChatMessage = {
+        role: "user",
+        content: inputValue.trim(),
+      };
 
-          // After dance duration, return to specific idle animation
-          setTimeout(() => {
-            // Find specific idle animation
-            const idleIndex = (window as any).ANIMATION_NAMES?.findIndex(
-              (name: string) => name === "Idle M F_Standing_Idle_Variations_003"
+      // Add user message to chat
+      setMessages(prev => [...prev, userMessage]);
+      setInputValue("");
+      setIsLoading(true);
+
+      try {
+        // Get AI response with animation request
+        const aiResponse = await chatWithAI([...messages, userMessage], availableAnimations);
+
+        // Add AI response to chat
+        const assistantMessage: ChatMessage = {
+          role: "assistant",
+          content: aiResponse.response,
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+
+        // Handle animation request if present
+        if (aiResponse.animationRequest) {
+          console.log("AI requested animation:", aiResponse.animationRequest);
+
+          // Use the global playAnimationByDescription function
+          if ((window as any).playAnimationByDescription) {
+            const success = (window as any).playAnimationByDescription(
+              aiResponse.animationRequest.animationDescription
             );
 
-            if (idleIndex !== -1) {
-              (window as any).playAnimation(idleIndex);
+            if (success) {
+              // Return to idle after animation completes
+              setTimeout(() => {
+                const idleIndex = (window as any).ANIMATION_NAMES?.findIndex(
+                  (name: string) => name.toLowerCase().includes("idle") && name.toLowerCase().includes("masculine")
+                );
+                if (idleIndex !== -1 && (window as any).playAnimation) {
+                  (window as any).playAnimation(idleIndex);
+                }
+              }, 5000); // Default 5 second animation duration
             }
-          }, danceDuration * 1000); // Convert duration to milliseconds
+          }
         }
-      }
 
-      // Clear the input
-      setInputValue("");
+        // Handle TTS audio if present
+        if (aiResponse.audioUrl) {
+          const audio = new Audio(aiResponse.audioUrl);
+          audio.play().catch(console.error);
+        }
+      } catch (error) {
+        console.error("Error in AI chat:", error);
+        const errorMessage: ChatMessage = {
+          role: "assistant",
+          content: "I'm sorry, I encountered an error. Please try again.",
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -60,7 +118,35 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Semi-transparent liquid glass input */}
+      {/* Animation System Status */}
+      <div className="absolute top-8 left-8 z-50">
+        <div
+          className={`px-4 py-2 rounded-lg text-white text-sm ${
+            animationSystemReady ? "bg-green-600" : "bg-yellow-600"
+          }`}
+        >
+          {animationSystemReady ? "Animation System Ready" : "Loading Animation System..."}
+        </div>
+      </div>
+
+      {/* Chat Messages - Only visible when debug is enabled */}
+      {showDebugUI && messages.length > 0 && (
+        <div className="absolute top-20 left-8 right-8 max-h-64 overflow-y-auto bg-black/20 backdrop-blur-md rounded-lg p-4 border border-white/20 z-30">
+          {messages.map((message, index) => (
+            <div key={index} className={`mb-3 ${message.role === "user" ? "text-right" : "text-left"}`}>
+              <div
+                className={`inline-block max-w-xs px-3 py-2 rounded-lg ${
+                  message.role === "user" ? "bg-blue-600 text-white" : "bg-white/20 text-white"
+                }`}
+              >
+                {message.content}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Beautiful Liquid Glass Input - Always visible */}
       <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4">
         <LiquidGlass
           borderRadius={50}
@@ -72,7 +158,13 @@ export default function Home() {
         >
           <input
             type="text"
-            placeholder="Type your message here..."
+            placeholder={
+              !animationSystemReady
+                ? "Loading animation system..."
+                : isLoading
+                ? "AI is thinking..."
+                : "Chat with AI to see animations..."
+            }
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
             onKeyPress={e => {
@@ -80,8 +172,9 @@ export default function Home() {
                 handleInputSubmit();
               }
             }}
+            disabled={isLoading || !animationSystemReady}
             className="w-full px-6 py-4 bg-transparent border-none outline-none
-                     text-white placeholder-white/60 text-lg"
+                     text-white placeholder-white/60 text-lg disabled:opacity-50"
           />
         </LiquidGlass>
       </div>
