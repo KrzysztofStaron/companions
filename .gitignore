@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+\public\animation-library\masculine\fbx
+\public\animation-library\masculine\webp
+\public\animation-library\feminine
