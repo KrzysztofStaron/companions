@@ -99,11 +99,43 @@ function AvatarAnimator() {
     setCurrentAnimationIndex(index);
   };
 
+  // Function to play animation once with callback
+  const playAnimationOnce = (index: number, onEnd?: () => void) => {
+    if (!mixerRef.current || index < 0 || index >= animations.length) return;
+
+    // Stop current animation
+    if (currentActionRef.current) {
+      currentActionRef.current.stop();
+    }
+
+    // Play new animation once
+    const newAction = mixerRef.current.clipAction(animations[index].clip);
+    newAction.setLoop(THREE.LoopOnce, 1);
+    newAction.clampWhenFinished = true;
+
+    const onFinish = () => {
+      if (onEnd) {
+        onEnd();
+      }
+
+      mixerRef.current?.removeEventListener("finished", onFinish);
+    };
+
+    mixerRef.current.addEventListener("finished", onFinish);
+
+    newAction.play();
+
+    currentActionRef.current = newAction;
+    setCurrentAnimationIndex(index);
+  };
+
   // Expose animation functions to parent component
   useEffect(() => {
     // This allows the parent component to control animations
     (window as any).playAnimation = playAnimation;
+    (window as any).playAnimationOnce = playAnimationOnce;
     (window as any).stopAnimation = stopAnimation;
+    (window as any).ANIMATION_NAMES = ANIMATION_NAMES;
   }, [animations]);
 
   // Function to stop all animations
@@ -149,7 +181,7 @@ function AvatarAnimator() {
   );
 }
 
-export default function ModelViewer() {
+export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boolean }) {
   const [currentAnimationIndex, setCurrentAnimationIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [cameraDistance, setCameraDistance] = useState(5);
@@ -242,110 +274,118 @@ export default function ModelViewer() {
       {/* Background overlay to hide everything below the model */}
       <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none"></div>
 
-      {/* Overlay text */}
-      <div className="absolute top-4 left-4 text-white z-10">
-        <h1 className="text-2xl font-bold mb-2">Avatar Animator</h1>
-        <p className="text-sm opacity-80">Drag to rotate • Scroll to zoom • Animations are separated from the model</p>
-        <p className="text-sm opacity-80 mt-2">Current: {ANIMATION_NAMES[currentAnimationIndex]}</p>
-      </div>
+      {/* Overlay text - Only visible when debug is enabled */}
+      {showDebugUI && (
+        <div className="absolute top-4 left-4 text-white z-10">
+          <h1 className="text-2xl font-bold mb-2">Avatar Animator</h1>
+          <p className="text-sm opacity-80">
+            Drag to rotate • Scroll to zoom • Animations are separated from the model
+          </p>
+          <p className="text-sm opacity-80 mt-2">Current: {ANIMATION_NAMES[currentAnimationIndex]}</p>
+        </div>
+      )}
 
-      {/* Animation Controls */}
-      <div className="absolute top-4 right-4 text-white z-10 flex flex-col gap-2">
-        <button
-          onClick={previousAnimation}
-          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors"
-        >
-          Previous
-        </button>
-        <button
-          onClick={nextAnimation}
-          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors"
-        >
-          Next
-        </button>
-        <button
-          onClick={randomAnimation}
-          className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-medium transition-colors"
-        >
-          Random
-        </button>
-        <button
-          onClick={togglePlayPause}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            isPlaying ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
-          }`}
-        >
-          {isPlaying ? "Pause" : "Play"}
-        </button>
+      {/* Animation Controls - Only visible when debug is enabled */}
+      {showDebugUI && (
+        <div className="absolute top-4 right-4 text-white z-10 flex flex-col gap-2">
+          <button
+            onClick={previousAnimation}
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            Previous
+          </button>
+          <button
+            onClick={nextAnimation}
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            Next
+          </button>
+          <button
+            onClick={randomAnimation}
+            className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            Random
+          </button>
+          <button
+            onClick={togglePlayPause}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              isPlaying ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
+            }`}
+          >
+            {isPlaying ? "Pause" : "Play"}
+          </button>
 
-        {/* Zoom Controls */}
-        <div className="border-t border-slate-600 pt-2 mt-2">
-          <div className="text-xs text-slate-400 mb-1 text-center">Zoom</div>
-          <div className="flex gap-1">
-            <button
-              onClick={zoomIn}
-              className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg font-medium transition-colors text-sm"
-              title="Zoom In"
-            >
-              +
-            </button>
-            <button
-              onClick={zoomOut}
-              className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg font-medium transition-colors text-sm"
-              title="Zoom Out"
-            >
-              −
-            </button>
+          {/* Zoom Controls */}
+          <div className="border-t border-slate-600 pt-2 mt-2">
+            <div className="text-xs text-slate-400 mb-1 text-center">Zoom</div>
+            <div className="flex gap-1">
+              <button
+                onClick={zoomIn}
+                className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg font-medium transition-colors text-sm"
+                title="Zoom In"
+              >
+                +
+              </button>
+              <button
+                onClick={zoomOut}
+                className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg font-medium transition-colors text-sm"
+                title="Zoom Out"
+              >
+                −
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Animation List */}
-      <div className="absolute bottom-4 left-4 text-white z-10 max-w-md">
-        <h3 className="text-lg font-semibold mb-2">Available Animations:</h3>
+      {/* Animation List - Only visible when debug is enabled */}
+      {showDebugUI && (
+        <div className="absolute bottom-4 left-4 text-white z-10 max-w-md">
+          <h3 className="text-lg font-semibold mb-2">Available Animations:</h3>
 
-        {/* Search Input */}
-        <div className="mb-3">
-          <input
-            type="text"
-            placeholder="Search animations..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
+          {/* Search Input */}
+          <div className="mb-3">
+            <input
+              type="text"
+              placeholder="Search animations..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
 
-        <div className="max-h-48 overflow-y-auto pr-2">
-          <div className="grid grid-cols-2 gap-1 text-sm">
-            {ANIMATION_NAMES.filter(
-              (name, index) =>
-                searchTerm === "" ||
-                name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                index === currentAnimationIndex // Always show current animation
-            ).map((name, index) => {
-              const originalIndex = ANIMATION_NAMES.indexOf(name);
-              return (
-                <div
-                  key={originalIndex}
-                  className={`p-2 rounded cursor-pointer transition-colors ${
-                    originalIndex === currentAnimationIndex
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-700 hover:bg-slate-600"
-                  }`}
-                  onClick={() => {
-                    setCurrentAnimationIndex(originalIndex);
-                    if ((window as any).playAnimation) {
-                      (window as any).playAnimation(originalIndex);
-                    }
-                  }}
-                >
-                  {name}
-                </div>
-              );
-            })}
+          <div className="max-h-48 overflow-y-auto pr-2">
+            <div className="grid grid-cols-2 gap-1 text-sm">
+              {ANIMATION_NAMES.filter(
+                (name, index) =>
+                  searchTerm === "" ||
+                  name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  index === currentAnimationIndex // Always show current animation
+              ).map((name, index) => {
+                const originalIndex = ANIMATION_NAMES.indexOf(name);
+                return (
+                  <div
+                    key={originalIndex}
+                    className={`p-2 rounded cursor-pointer transition-colors ${
+                      originalIndex === currentAnimationIndex
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-700 hover:bg-slate-600"
+                    }`}
+                    onClick={() => {
+                      setCurrentAnimationIndex(originalIndex);
+                      if ((window as any).playAnimation) {
+                        (window as any).playAnimation(originalIndex);
+                      }
+                    }}
+                  >
+                    {name}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
