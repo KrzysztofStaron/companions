@@ -151,42 +151,6 @@ export const ANIMATION_FILES: AnimationFile[] = [
     path: "/animation-library/masculine/glb/locomotion/F_Jog_001.glb",
     description: "Jogging with natural running motion and good form",
   },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Run_001.glb",
-    description: "Running with full speed and athletic form",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Walk_002.glb",
-    description: "Walking with natural gait and relaxed movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Walk_003.glb",
-    description: "Walking with confident stride and good posture",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Crouch_Walk_003.glb",
-    description: "Crouched walking with low profile and careful movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Jog_001.glb",
-    description: "Jogging with natural running motion and good form",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Jog_003.glb",
-    description: "Jogging with steady pace and consistent movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Run_001.glb",
-    description: "Running with full speed and athletic form",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Walk_001.glb",
-    description: "Walking with natural gait and relaxed movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Walk_002.glb",
-    description: "Walking with confident stride and good posture",
-  },
 ];
 
 // Generate descriptive names for all animations (for backward compatibility)
