@@ -212,60 +212,16 @@ export const ANIMATION_FILES: AnimationFile[] = [
 
   // Masculine Locomotion Animations
   {
-    path: "/animation-library/masculine/glb/locomotion/F_Crouch_Strafe_Left.glb",
-    description: "Crouching movement to the left with stealthy motion",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Crouch_Strafe_Right.glb",
-    description: "Crouching movement to the right with careful steps",
-  },
-  {
     path: "/animation-library/masculine/glb/locomotion/F_Crouch_Walk_001.glb",
     description: "Crouched walking with low profile and careful movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_CrouchedWalk_Backwards_001.glb",
-    description: "Crouched walking backwards with cautious retreat",
   },
   {
     path: "/animation-library/masculine/glb/locomotion/F_Jog_001.glb",
     description: "Jogging with natural running motion and good form",
   },
   {
-    path: "/animation-library/masculine/glb/locomotion/F_Jog_Backwards_001.glb",
-    description: "Jogging backwards with careful reverse movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Jog_Jump_Small_001.glb",
-    description: "Jogging with small jumps and dynamic movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Jog_Strafe_Left_002.glb",
-    description: "Jogging to the left with side-stepping motion",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Jog_Strafe_Right_002.glb",
-    description: "Jogging to the right with side-stepping motion",
-  },
-  {
     path: "/animation-library/masculine/glb/locomotion/F_Run_001.glb",
     description: "Running with full speed and athletic form",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Run_Backwards_001.glb",
-    description: "Running backwards with fast reverse movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Run_Jump_001.glb",
-    description: "Running with jumping motion and dynamic movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Run_Strafe_Left_001.glb",
-    description: "Running to the left with fast side movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Run_Strafe_Right_001.glb",
-    description: "Running to the right with fast side movement",
   },
   {
     path: "/animation-library/masculine/glb/locomotion/F_Walk_002.glb",
@@ -276,40 +232,8 @@ export const ANIMATION_FILES: AnimationFile[] = [
     description: "Walking with confident stride and good posture",
   },
   {
-    path: "/animation-library/masculine/glb/locomotion/F_Walk_Backwards_001.glb",
-    description: "Walking backwards with careful reverse steps",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Walk_Jump_001.glb",
-    description: "Walking with jumping motion and playful movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Walk_Strafe_Left_001.glb",
-    description: "Walking to the left with side-stepping motion",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Walk_Strafe_Right_001.glb",
-    description: "Walking to the right with side-stepping motion",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Crouch_Strafe_Left_002.glb",
-    description: "Crouching movement to the left with stealthy motion",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Crouch_Strafe_Right_002.glb",
-    description: "Crouching movement to the right with careful steps",
-  },
-  {
     path: "/animation-library/masculine/glb/locomotion/M_Crouch_Walk_003.glb",
     description: "Crouched walking with low profile and careful movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_CrouchedWalk_Backwards_002.glb",
-    description: "Crouched walking backwards with cautious retreat",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Falling_Idle_002.glb",
-    description: "Falling idle pose with relaxed falling animation",
   },
   {
     path: "/animation-library/masculine/glb/locomotion/M_Jog_001.glb",
@@ -320,40 +244,8 @@ export const ANIMATION_FILES: AnimationFile[] = [
     description: "Jogging with steady pace and consistent movement",
   },
   {
-    path: "/animation-library/masculine/glb/locomotion/M_Jog_Backwards_001.glb",
-    description: "Jogging backwards with careful reverse movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Jog_Jump_001.glb",
-    description: "Jogging with jumping motion and dynamic movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Jog_Strafe_Left_001.glb",
-    description: "Jogging to the left with side-stepping motion",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Jog_Strafe_Right_001.glb",
-    description: "Jogging to the right with side-stepping motion",
-  },
-  {
     path: "/animation-library/masculine/glb/locomotion/M_Run_001.glb",
     description: "Running with full speed and athletic form",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Run_Backwards_002.glb",
-    description: "Running backwards with fast reverse movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Run_Jump_001.glb",
-    description: "Running with jumping motion and dynamic movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Run_Strafe_Left_002.glb",
-    description: "Running to the left with fast side movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Run_Strafe_Right_002.glb",
-    description: "Running to the right with fast side movement",
   },
   {
     path: "/animation-library/masculine/glb/locomotion/M_Walk_001.glb",
@@ -362,22 +254,6 @@ export const ANIMATION_FILES: AnimationFile[] = [
   {
     path: "/animation-library/masculine/glb/locomotion/M_Walk_002.glb",
     description: "Walking with confident stride and good posture",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Walk_Backwards_001.glb",
-    description: "Walking backwards with careful reverse steps",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Walk_Jump_001.glb",
-    description: "Walking with jumping motion and playful movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Walk_Strafe_Left_002.glb",
-    description: "Walking to the left with side-stepping motion",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Walk_Strafe_Right_002.glb",
-    description: "Walking to the right with side-stepping motion",
   },
 ];
 
