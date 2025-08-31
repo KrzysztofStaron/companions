@@ -53,9 +53,34 @@ function AvatarAnimator({
       currentActionRef.current.stop();
     }
 
+    // Check if this is an idle animation
+    const isIdleAnimation = animations[index].name.toLowerCase().includes("idle");
+
     // Play new animation
     const newAction = mixerRef.current.clipAction(animations[index].clip);
-    newAction.setLoop(THREE.LoopRepeat, Infinity);
+
+    if (isIdleAnimation) {
+      // For idle animations, play once and set up completion callback
+      newAction.setLoop(THREE.LoopOnce, 1);
+      newAction.clampWhenFinished = true;
+
+      // Set up completion listener for idle animations
+      const onIdleComplete = () => {
+        console.log(`🔄 Idle animation "${animations[index].name}" completed`);
+        // Call the global onIdleAnimationComplete function for cycling
+        if ((window as any).onIdleAnimationComplete) {
+          (window as any).onIdleAnimationComplete();
+        }
+        // Remove the listener
+        mixerRef.current?.removeEventListener("finished", onIdleComplete);
+      };
+
+      mixerRef.current.addEventListener("finished", onIdleComplete);
+    } else {
+      // For non-idle animations, loop infinitely
+      newAction.setLoop(THREE.LoopRepeat, Infinity);
+    }
+
     newAction.play();
 
     currentActionRef.current = newAction;

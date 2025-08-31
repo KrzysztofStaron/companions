@@ -525,3 +525,36 @@ export function getAnimationName(index: number): string | null {
 export function getTotalAnimationCount(): number {
   return ANIMATION_FILES.length;
 }
+
+/**
+ * Gets a random idle animation from the available idle animations
+ * @returns A random idle animation file
+ * @example
+ * const randomIdle = getRandomIdleAnimation();
+ * console.log(randomIdle.description); // "Standing idle with subtle breathing and slight movements"
+ */
+export function getRandomIdleAnimation(): AnimationFile {
+  const idleAnimations = ANIMATION_FILES.filter(file => file.path.includes("/idle/"));
+
+  if (idleAnimations.length === 0) {
+    // Fallback to a default idle if no idle animations are found
+    return (
+      ANIMATION_FILES.find(file => file.path.includes("/idle/") && file.path.includes("M_Standing_Idle_001")) ||
+      ANIMATION_FILES[0]
+    );
+  }
+
+  const randomIndex = Math.floor(Math.random() * idleAnimations.length);
+  return idleAnimations[randomIndex];
+}
+
+/**
+ * Gets all available idle animations
+ * @returns Array of all idle animation files
+ * @example
+ * const idleAnims = getIdleAnimations();
+ * console.log(`Found ${idleAnims.length} idle animations`);
+ */
+export function getIdleAnimations(): AnimationFile[] {
+  return ANIMATION_FILES.filter(file => file.path.includes("/idle/"));
+}

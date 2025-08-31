@@ -13,6 +13,8 @@ export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [availableAnimations, setAvailableAnimations] = useState<string[]>([]);
   const [animationSystemReady, setAnimationSystemReady] = useState(false);
+  const [isInIdleState, setIsInIdleState] = useState(false);
+  const [idleCycleTimer, setIdleCycleTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Get available animations for the LLM
   useEffect(() => {
@@ -37,6 +39,122 @@ export default function Home() {
     };
     checkAnimationSystem();
   }, []);
+
+  // Start idle cycling when animation system becomes ready
+  useEffect(() => {
+    if (animationSystemReady) {
+      console.log("🔄 Animation system state updated - starting idle cycling");
+      // Start idle cycling after a short delay to ensure state is stable
+      setTimeout(() => {
+        startIdleCycling();
+      }, 1000);
+    }
+  }, [animationSystemReady]);
+
+  // Debug: Monitor state changes
+  useEffect(() => {
+    console.log(`🔄 State changed - animationSystemReady: ${animationSystemReady}, isInIdleState: ${isInIdleState}`);
+  }, [animationSystemReady, isInIdleState]);
+
+  // Function to start idle cycling
+  const startIdleCycling = () => {
+    console.log(`🔄 Starting idle cycling - Animation system ready: ${animationSystemReady}`);
+
+    // Double-check that the animation system is actually ready
+    if (!(window as any).playAnimation || !(window as any).ANIMATION_NAMES) {
+      console.log(`❌ Animation system not ready yet, delaying idle cycling start`);
+      setTimeout(startIdleCycling, 1000);
+      return;
+    }
+
+    // Set the idle state first
+    setIsInIdleState(true);
+    console.log(`🔄 Idle state set to: true, will update in next render`);
+
+    // Clear any existing timer
+    if (idleCycleTimer) {
+      clearTimeout(idleCycleTimer);
+      console.log(`🔄 Cleared existing idle cycle timer`);
+    }
+
+    // Start cycling through idle animations
+    const cycleToNextIdle = () => {
+      console.log(
+        `🔄 cycleToNextIdle called - isInIdleState: ${isInIdleState}, animationSystemReady: ${animationSystemReady}`
+      );
+
+      if (isInIdleState && (window as any).playAnimation) {
+        // Get all idle animations
+        const idleIndices =
+          (window as any).ANIMATION_NAMES?.map((name: string, index: number) =>
+            name.toLowerCase().includes("idle") ? index : -1
+          ).filter((index: number) => index !== -1) || [];
+
+        console.log(`🔄 Found ${idleIndices.length} idle animations:`, idleIndices);
+
+        if (idleIndices.length > 0) {
+          // Pick a random idle animation
+          const randomIdleIndex = idleIndices[Math.floor(Math.random() * idleIndices.length)];
+          console.log(`🔄 Cycling to random idle animation: ${(window as any).ANIMATION_NAMES[randomIdleIndex]}`);
+          (window as any).playAnimation(randomIdleIndex);
+
+          // Set up next cycle (random duration between 5-15 seconds)
+          const nextCycleDelay = 5000 + Math.random() * 10000;
+          console.log(`🔄 Next idle cycle in ${Math.round(nextCycleDelay / 1000)} seconds`);
+          const timer = setTimeout(cycleToNextIdle, nextCycleDelay);
+          setIdleCycleTimer(timer);
+        }
+      } else {
+        console.log(
+          `🔄 Idle cycling skipped - isInIdleState: ${isInIdleState}, playAnimation: ${!!(window as any).playAnimation}`
+        );
+      }
+    };
+
+    // Start first cycle after a short delay
+    const timer = setTimeout(cycleToNextIdle, 3000);
+    setIdleCycleTimer(timer);
+    console.log(`🔄 First idle cycle scheduled in 3 seconds`);
+  };
+
+  // Function to stop idle cycling
+  const stopIdleCycling = () => {
+    console.log(`🔄 Stopping idle cycling`);
+    setIsInIdleState(false);
+    if (idleCycleTimer) {
+      clearTimeout(idleCycleTimer);
+      setIdleCycleTimer(null);
+    }
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (idleCycleTimer) {
+        clearTimeout(idleCycleTimer);
+      }
+    };
+  }, [idleCycleTimer]);
+
+  // Expose idle cycling functions globally
+  useEffect(() => {
+    (window as any).startIdleCycling = startIdleCycling;
+    (window as any).stopIdleCycling = stopIdleCycling;
+    (window as any).cycleToNextIdle = () => {
+      if (isInIdleState && (window as any).playAnimation) {
+        const idleIndices =
+          (window as any).ANIMATION_NAMES?.map((name: string, index: number) =>
+            name.toLowerCase().includes("idle") ? index : -1
+          ).filter((index: number) => index !== -1) || [];
+
+        if (idleIndices.length > 0) {
+          const randomIdleIndex = idleIndices[Math.floor(Math.random() * idleIndices.length)];
+          console.log(`🔄 Manual idle cycle to: ${(window as any).ANIMATION_NAMES[randomIdleIndex]}`);
+          (window as any).playAnimation(randomIdleIndex);
+        }
+      }
+    };
+  }, [isInIdleState]);
 
   const handleInputSubmit = async () => {
     if (inputValue.trim() && !isLoading && animationSystemReady) {
@@ -76,6 +194,9 @@ export default function Home() {
 
             if (success) {
               console.log("🔄 Setting up return to idle...");
+              // Stop idle cycling during animation
+              stopIdleCycling();
+
               // Return to idle after animation completes
               setTimeout(() => {
                 const idleIndex = (window as any).ANIMATION_NAMES?.findIndex((name: string) =>
@@ -83,6 +204,8 @@ export default function Home() {
                 );
                 if (idleIndex !== -1 && (window as any).playAnimation) {
                   (window as any).playAnimation(idleIndex);
+                  // Start idle cycling after returning to idle
+                  startIdleCycling();
                 }
               }, 5000); // Default 5 second animation duration
             }
@@ -132,6 +255,24 @@ export default function Home() {
         >
           {showDebugUI ? "Hide Debug" : "Show Debug"}
         </button>
+
+        {/* Manual Idle Cycling Test Button */}
+        {animationSystemReady && (
+          <button
+            onClick={() => {
+              if (isInIdleState) {
+                stopIdleCycling();
+              } else {
+                startIdleCycling();
+              }
+            }}
+            className={`mt-2 px-4 py-2 rounded-lg text-white transition-all duration-200 font-medium ${
+              isInIdleState ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
+            }`}
+          >
+            {isInIdleState ? "⏸️ Stop Idle Cycling" : "�� Start Idle Cycling"}
+          </button>
+        )}
       </div>
 
       {/* Animation System Status */}
@@ -142,6 +283,17 @@ export default function Home() {
           }`}
         >
           {animationSystemReady ? "Animation System Ready" : "Loading Animation System..."}
+
+          {/* Idle Cycling Status */}
+          {animationSystemReady && (
+            <div
+              className={`mt-2 px-4 py-2 rounded-lg text-white text-sm ${
+                isInIdleState ? "bg-blue-600" : "bg-gray-600"
+              }`}
+            >
+              {isInIdleState ? "🔄 Idle Cycling Active" : "⏸️ Idle Cycling Paused"}
+            </div>
+          )}
         </div>
       </div>
 
