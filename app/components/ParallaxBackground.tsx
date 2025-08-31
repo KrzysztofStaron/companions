@@ -32,8 +32,15 @@ export default function ParallaxBackground({ azimuthal = 0, polar = 0, backgroun
   // Background rotation based on horizontal camera panning
   const backgroundRotation = azimuthal * rotationStrength;
 
-  // Determine which background image to use
-  const imageUrl = backgroundUrl || "/background.png";
+  // Only show background if backgroundUrl is provided
+  if (!backgroundUrl) {
+    return (
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        {/* Clean gradient background when no image is set */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">
@@ -43,7 +50,7 @@ export default function ParallaxBackground({ azimuthal = 0, polar = 0, backgroun
                    bg-cover bg-center bg-no-repeat
                    transition-all duration-1000 ease-out"
         style={{
-          backgroundImage: `url('${imageUrl}')`,
+          backgroundImage: `url('${backgroundUrl}')`,
           transform: `translate(${offsetX}px, ${offsetY}px) rotate(${backgroundRotation}deg)`,
           filter: "blur(8px) brightness(0.7) contrast(1.1)",
         }}
@@ -55,7 +62,7 @@ export default function ParallaxBackground({ azimuthal = 0, polar = 0, backgroun
                    bg-cover bg-center bg-no-repeat opacity-30
                    transition-all duration-1000 ease-out"
         style={{
-          backgroundImage: `url('${imageUrl}')`,
+          backgroundImage: `url('${backgroundUrl}')`,
           transform: `translate(${offsetX * 1.5}px, ${offsetY * 1.5}px) rotate(${backgroundRotation * 0.7}deg)`,
           filter: "blur(20px) brightness(0.4)",
         }}
