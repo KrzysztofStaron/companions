@@ -3,8 +3,9 @@
 import ModelViewer from "./components/ModelViewer";
 import LiquidGlass from "./components/ui/LiquidGlass";
 import AnimationStateMachine from "./components/AnimationStateMachine";
+import VoiceChat from "./components/VoiceChat";
 import { useState, useEffect, useRef } from "react";
-import { chatWithAI, ChatMessage } from "./actions/chat";
+import { chatWithAI, ChatMessage, AnimationRequest } from "./actions/chat";
 import { getAvailableAnimationsForLLM } from "./components/animation-loader";
 
 export default function Home() {
@@ -20,6 +21,7 @@ export default function Home() {
   const [animationState, setAnimationState] = useState<any>(null);
   const [hasSentGreeting, setHasSentGreeting] = useState(false);
   const [greetingComplete, setGreetingComplete] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const greetingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get available animations for the LLM
@@ -44,6 +46,46 @@ export default function Home() {
       (window as any).playAnimationByDescription(animationName);
     } else {
       console.warn(`❌ playAnimationByDescription function not available`);
+    }
+  };
+
+  // Handler for voice chat messages
+  const handleVoiceMessage = (message: ChatMessage) => {
+    setMessages(prev => [...prev, message]);
+  };
+
+  // Handler for voice chat animation requests
+  const handleVoiceAnimationRequest = (request: AnimationRequest) => {
+    console.log("🎭 Voice chat animation request:", request);
+
+    // Add AI response to chat
+    const assistantMessage: ChatMessage = {
+      role: "assistant",
+      content: request.say,
+    };
+    setMessages(prev => [...prev, assistantMessage]);
+
+    // Play the requested animation
+    if ((window as any).playAnimationByDescription) {
+      const success = (window as any).playAnimationByDescription(request.animationDescription);
+      console.log("🎯 Voice animation result:", success);
+
+      if (success) {
+        // Return to idle after animation completes
+        setTimeout(() => {
+          if ((window as any).returnToIdle) {
+            (window as any).returnToIdle();
+          } else {
+            // Fallback: find and play an idle animation manually
+            const idleIndex = (window as any).ANIMATION_NAMES?.findIndex((name: string) =>
+              name.toLowerCase().includes("idle")
+            );
+            if (idleIndex !== -1 && (window as any).playAnimation) {
+              (window as any).playAnimation(idleIndex);
+            }
+          }
+        }, 5000);
+      }
     }
   };
 
@@ -313,7 +355,7 @@ export default function Home() {
         </div>
       )}
 
-      <ModelViewer showDebugUI={showDebugUI && isDevelopment} />
+      <ModelViewer showDebugUI={showDebugUI && isDevelopment} isListening={isListening} />
 
       {/* Animation State Machine for managing idle cycling */}
       <AnimationStateMachine
@@ -365,6 +407,17 @@ export default function Home() {
           ))}
         </div>
       )}
+
+      {/* Voice Chat - Above the text input */}
+      <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-40">
+        <VoiceChat
+          availableAnimations={availableAnimations}
+          onAnimationRequest={handleVoiceAnimationRequest}
+          onMessage={handleVoiceMessage}
+          isListening={isListening}
+          onListeningChange={setIsListening}
+        />
+      </div>
 
       {/* Beautiful Liquid Glass Input - Always visible */}
       <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4">

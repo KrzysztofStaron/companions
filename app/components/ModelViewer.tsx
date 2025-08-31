@@ -7,9 +7,14 @@ import { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { ANIMATION_FILES, ANIMATION_NAMES, getAvailableAnimationsForLLM } from "./animation-loader";
+import CharacterSwitcher from "./CharacterSwitcher";
 
-// Main character model (this should be your base character without animations)
-const CHARACTER_MODEL = "/models/character.glb";
+// Character models with different shirt colors
+const CHARACTER_MODELS = {
+  character: "/models/character.glb",
+  character2: "/models/character2.glb",
+  character3: "/models/character3.glb",
+};
 
 interface AnimationData {
   name: string;
@@ -19,13 +24,17 @@ interface AnimationData {
 }
 
 function AvatarAnimator({
+  character = "character",
   onError,
   onLoadingChange,
 }: {
+  character?: string;
   onError?: (error: string | null) => void;
   onLoadingChange?: (loading: boolean) => void;
 }) {
-  const { scene: characterScene } = useGLTF(CHARACTER_MODEL);
+  const { scene: characterScene } = useGLTF(
+    CHARACTER_MODELS[character as keyof typeof CHARACTER_MODELS] || CHARACTER_MODELS.character
+  );
   const modelRef = useRef<THREE.Group>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const currentActionRef = useRef<THREE.AnimationAction | null>(null);
@@ -361,10 +370,17 @@ function AvatarAnimator({
   );
 }
 
-export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boolean }) {
+export default function ModelViewer({
+  showDebugUI = false,
+  isListening = false,
+}: {
+  showDebugUI?: boolean;
+  isListening?: boolean;
+}) {
   const [currentAnimationIndex, setCurrentAnimationIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentCharacter, setCurrentCharacter] = useState("character");
   const orbitControlsRef = useRef<any>(null);
   const [animationError, setAnimationError] = useState<string | null>(null);
   const [animationLoading, setAnimationLoading] = useState(true);
@@ -468,6 +484,11 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
     }, 500);
   };
 
+  // Handle character change
+  const handleCharacterChange = (character: string) => {
+    setCurrentCharacter(character);
+  };
+
   // Cleanup return to center animation on unmount
   useEffect(() => {
     return () => {
@@ -486,7 +507,12 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
         <pointLight position={[-10, -10, -5]} intensity={0.5} />
 
         {/* Avatar with Animator */}
-        <AvatarAnimator onError={setAnimationError} onLoadingChange={setAnimationLoading} />
+        <AvatarAnimator
+          key={currentCharacter}
+          character={currentCharacter}
+          onError={setAnimationError}
+          onLoadingChange={setAnimationLoading}
+        />
 
         {/* Controls */}
         <OrbitControls
@@ -512,6 +538,33 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
       {/* Background overlay to hide everything below the model */}
       <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none"></div>
 
+      {/* Voice Chat Indicator */}
+      {isListening && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
+          <div className="relative">
+            {/* Pulsing ring */}
+            <div className="absolute inset-0 w-32 h-32 border-4 border-red-400 rounded-full animate-ping opacity-75"></div>
+            <div className="absolute inset-0 w-32 h-32 border-4 border-red-500 rounded-full animate-pulse"></div>
+
+            {/* Microphone icon */}
+            <div className="relative w-32 h-32 bg-red-500/80 backdrop-blur-md rounded-full flex items-center justify-center">
+              <svg className="w-16 h-16 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H9a1 1 0 100 2h2a1 1 0 100-2v-2.07z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+
+            {/* "Listening..." text */}
+            <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 text-white text-lg font-medium bg-black/50 backdrop-blur-md px-4 py-2 rounded-lg border border-white/20">
+              Listening...
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Animation System Debug Info - Outside Canvas */}
       {animationError && (
         <div className="absolute top-4 left-4 text-red-500 bg-black/50 p-2 rounded z-50">Error: {animationError}</div>
@@ -521,14 +574,20 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
         <div className="absolute top-4 left-4 text-yellow-500 bg-black/50 p-2 rounded z-50">Loading animations...</div>
       )}
 
+      {/* Character Switcher - Always visible */}
+      <div className="absolute top-4 left-4 z-10">
+        <CharacterSwitcher currentCharacter={currentCharacter} onCharacterChange={handleCharacterChange} />
+      </div>
+
       {/* Overlay text - Only visible when debug is enabled */}
       {showDebugUI && (
-        <div className="absolute top-4 left-4 text-white z-10">
+        <div className="absolute top-20 left-4 text-white z-10">
           <h1 className="text-2xl font-bold mb-2">Avatar Animator</h1>
           <p className="text-sm opacity-80">
             Drag to rotate • Scroll to zoom • Animations are separated from the model
           </p>
-          <p className="text-sm opacity-80 mt-2">Current: {ANIMATION_NAMES[currentAnimationIndex]}</p>
+          <p className="text-sm opacity-80 mt-2">Animation: {ANIMATION_NAMES[currentAnimationIndex]}</p>
+          <p className="text-sm opacity-80">Character: {currentCharacter}</p>
         </div>
       )}
 
