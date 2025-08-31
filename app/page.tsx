@@ -9,7 +9,7 @@ import { getAvailableAnimationsForLLM } from "./components/animation-loader";
 
 export default function Home() {
   const [showDebugUI, setShowDebugUI] = useState(false);
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isDevelopment = process.env.NODE_ENV === "development";
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -331,55 +331,59 @@ export default function Home() {
         onStateChange={handleAnimationStateChange}
       />
 
-      {/* Debug UI Toggle Button */}
-      <div className="absolute top-8 right-8 z-50">
-        <button
-          onClick={() => setShowDebugUI(!showDebugUI)}
-          className="px-4 py-2 bg-white/20 backdrop-blur-md border border-white/30 rounded-lg
-                   text-white hover:bg-white/30 transition-all duration-200 font-medium"
-        >
-          {showDebugUI ? "Hide Debug" : "Show Debug"}
-        </button>
-
-        {/* Manual Idle Cycling Test Button */}
-        {animationSystemReady && (
+      {/* Debug UI Toggle Button - Only in Development */}
+      {isDevelopment && (
+        <div className="absolute top-8 right-8 z-50">
           <button
-            onClick={() => {
-              if ((window as any).changeToNewRandomIdle) {
-                (window as any).changeToNewRandomIdle();
-              }
-            }}
-            className="mt-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition-all duration-200 font-medium"
+            onClick={() => setShowDebugUI(!showDebugUI)}
+            className="px-4 py-2 bg-white/20 backdrop-blur-md border border-white/30 rounded-lg
+                     text-white hover:bg-white/30 transition-all duration-200 font-medium"
           >
-            🔄 New Random Idle
+            {showDebugUI ? "Hide Debug" : "Show Debug"}
           </button>
-        )}
-      </div>
 
-      {/* Animation System Status */}
-      <div className="absolute top-8 left-8 z-50">
-        <div
-          className={`px-4 py-2 rounded-lg text-white text-sm ${
-            animationSystemReady ? "bg-green-600" : "bg-yellow-600"
-          }`}
-        >
-          {animationSystemReady ? "Animation System Ready" : "Loading Animation System..."}
-
-          {/* Idle Cycling Status */}
+          {/* Manual Idle Cycling Test Button */}
           {animationSystemReady && (
-            <div
-              className={`mt-2 px-4 py-2 rounded-lg text-white text-sm ${
-                isInIdleState ? "bg-blue-600" : "bg-gray-600"
-              }`}
+            <button
+              onClick={() => {
+                if ((window as any).changeToNewRandomIdle) {
+                  (window as any).changeToNewRandomIdle();
+                }
+              }}
+              className="mt-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition-all duration-200 font-medium"
             >
-              {isInIdleState ? "🔄 Idle Cycling Active" : "⏸️ Idle Cycling Paused"}
-            </div>
+              🔄 New Random Idle
+            </button>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Chat Messages - Only visible when debug is enabled */}
-      {showDebugUI && messages.length > 0 && (
+      {/* Animation System Status - Only in Development */}
+      {isDevelopment && (
+        <div className="absolute top-8 left-8 z-50">
+          <div
+            className={`px-4 py-2 rounded-lg text-white text-sm ${
+              animationSystemReady ? "bg-green-600" : "bg-yellow-600"
+            }`}
+          >
+            {animationSystemReady ? "Animation System Ready" : "Loading Animation System..."}
+
+            {/* Idle Cycling Status */}
+            {animationSystemReady && (
+              <div
+                className={`mt-2 px-4 py-2 rounded-lg text-white text-sm ${
+                  isInIdleState ? "bg-blue-600" : "bg-gray-600"
+                }`}
+              >
+                {isInIdleState ? "🔄 Idle Cycling Active" : "⏸️ Idle Cycling Paused"}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Chat Messages - Only visible in development when debug is enabled */}
+      {isDevelopment && showDebugUI && messages.length > 0 && (
         <div className="absolute top-20 left-8 right-8 max-h-64 overflow-y-auto bg-black/20 backdrop-blur-md rounded-lg p-4 border border-white/20 z-30">
           {messages.map((message, index) => (
             <div key={index} className={`mb-3 ${message.role === "user" ? "text-right" : "text-left"}`}>
