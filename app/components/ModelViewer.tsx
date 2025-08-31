@@ -134,17 +134,9 @@ function AvatarAnimator({
           console.log("Setting up animation mixer...");
           mixerRef.current = new THREE.AnimationMixer(characterScene);
 
-          // Find and play an idle animation by default
-          const idleIndex = loadedAnimations.findIndex(anim => anim.name.toLowerCase().includes("idle"));
-
-          if (idleIndex !== -1) {
-            console.log(`Playing idle animation: ${loadedAnimations[idleIndex].name}`);
-            playAnimation(idleIndex);
-            setCurrentAnimationIndex(idleIndex);
-          } else if (loadedAnimations.length > 0) {
-            // Fallback to first animation if no idle found
-            console.log(`Playing first animation: ${loadedAnimations[0].name}`);
-            playAnimation(0);
+          // start idle cycle
+          if ((window as any).startIdleVariation) {
+            (window as any).startIdleVariation();
           }
         } else {
           console.error("Character scene is null!");
