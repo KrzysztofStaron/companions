@@ -86,7 +86,7 @@ export default function AnimationStateMachine({
 
     setState(newState);
     onStateChange(newState);
-    onAnimationChange(animationName);
+    // Don't call onAnimationChange here to avoid recursion - let parent handle playback
 
     // Set timeout to return to idle
     const animationDuration = duration || 5000; // Default 5 seconds
@@ -113,7 +113,8 @@ export default function AnimationStateMachine({
     console.log(`🔄 Idle state updated: "${randomIdleAnimation}"`);
     setState(newState);
     onStateChange(newState);
-    onAnimationChange(randomIdleAnimation);
+    // Don't call onAnimationChange for idle state changes to avoid recursion
+    // The parent component will handle the actual animation playback based on state changes
   };
 
   // Function to queue multiple animations
@@ -157,7 +158,11 @@ export default function AnimationStateMachine({
     currentIdleAnimationRef.current = randomIdleAnimation;
     setState(newState);
     onStateChange(newState);
-    onAnimationChange(randomIdleAnimation);
+    // Don't call onAnimationChange to avoid recursion - parent will handle based on state
+    // But we do want to trigger the actual animation playback for manual idle changes
+    if ((window as any).playAnimationByDescription) {
+      (window as any).playAnimationByDescription(randomIdleAnimation);
+    }
 
     // Set up completion handling for this idle animation
     // The ModelViewer should call onIdleAnimationComplete when the animation finishes
@@ -192,18 +197,9 @@ export default function AnimationStateMachine({
     // No timer needed - will cycle when idle animations complete
   }, []);
 
-  // Expose functions globally
+  // Expose functions globally (avoiding conflicts with ModelViewer)
   useEffect(() => {
-    // This allows the parent component to control animations
-    (window as any).playAnimationByName = (name: string, duration?: number) => {
-      if (availableAnimations.includes(name)) {
-        playAnimation(name, duration);
-      } else {
-        console.warn(`Animation "${name}" not found`);
-      }
-    };
-
-    (window as any).playAnimationByDescription = playAnimationByDescription;
+    // Only expose functions that don't conflict with ModelViewer
     (window as any).returnToIdle = returnToIdle;
     (window as any).stopAnimation = stopAnimation;
     (window as any).queueAnimations = queueAnimations;
@@ -211,10 +207,10 @@ export default function AnimationStateMachine({
     (window as any).startIdleVariation = startIdleVariation;
     (window as any).stopIdleVariation = stopIdleVariation;
     (window as any).onIdleAnimationComplete = onIdleAnimationComplete;
+
+    // Don't expose playAnimationByName or playAnimationByDescription to avoid conflicts
+    // These will be handled directly through the ModelViewer
   }, [
-    availableAnimations,
-    playAnimation,
-    playAnimationByDescription,
     returnToIdle,
     stopAnimation,
     queueAnimations,

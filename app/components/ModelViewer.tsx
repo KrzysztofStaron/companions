@@ -48,6 +48,9 @@ function AvatarAnimator({
   const playAnimation = (index: number) => {
     if (!mixerRef.current || index < 0 || index >= animations.length) return;
 
+    console.log(`🎬 playAnimation called with index: ${index}, animation: ${animations[index]?.name || "undefined"}`);
+    console.log(`🎬 Previous animation index: ${currentAnimationIndex}`);
+
     // Stop current animation
     if (currentActionRef.current) {
       currentActionRef.current.stop();
@@ -66,7 +69,7 @@ function AvatarAnimator({
 
       // Set up completion listener for idle animations
       const onIdleComplete = () => {
-        console.log(`🔄 Idle animation "${animations[index].name}" completed`);
+        console.log(`🔄 Idle animation "${animations[index].name}" completed at index ${index}`);
         // Call the global onIdleAnimationComplete function for cycling
         if ((window as any).onIdleAnimationComplete) {
           (window as any).onIdleAnimationComplete();
@@ -85,6 +88,7 @@ function AvatarAnimator({
 
     currentActionRef.current = newAction;
     setCurrentAnimationIndex(index);
+    console.log(`🎬 Animation started: ${animations[index].name}, new current index: ${index}`);
   };
 
   // Load animations when character scene is ready
@@ -320,7 +324,8 @@ function AvatarAnimator({
     (window as any).playAnimationByDescription = playAnimationByDescription;
     (window as any).ANIMATION_NAMES = ANIMATION_NAMES;
     (window as any).animations = animations;
-  }, [animations, playAnimation, playAnimationOnce, stopAnimation, playAnimationByDescription]);
+    (window as any).currentAnimationIndex = currentAnimationIndex;
+  }, [animations, playAnimation, playAnimationOnce, stopAnimation, playAnimationByDescription, currentAnimationIndex]);
 
   return (
     <>
