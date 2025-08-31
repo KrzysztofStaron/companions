@@ -30,7 +30,7 @@ export async function generateBackground(description: string): Promise<string | 
                        Style: Cinematic, dreamy, soft lighting, suitable as a background.
                        The image should be suitable for use behind a 3D character, 
                        with good depth and atmosphere. High quality, detailed environment.
-                       Wide aspect ratio preferred.`,
+                       Wide aspect ratio preferred. Make sure at the bottom of the Image is a nice ground, so the character can walk on it.`,
               },
             ],
           },

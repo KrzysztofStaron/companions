@@ -51,7 +51,7 @@ export default function ParallaxBackground({ azimuthal = 0, polar = 0, backgroun
                    transition-all duration-1000 ease-out"
         style={{
           backgroundImage: `url('${backgroundUrl}')`,
-          transform: `translate(${offsetX}px, ${offsetY}px) rotate(${backgroundRotation}deg)`,
+          transform: `translate3d(${offsetX}px, ${offsetY}px, 0) rotateZ(${backgroundRotation}deg)`,
           filter: "blur(8px) brightness(0.7) contrast(1.1)",
         }}
       />
