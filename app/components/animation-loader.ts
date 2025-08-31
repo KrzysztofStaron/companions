@@ -28,7 +28,7 @@ export const ANIMATION_FILES: AnimationFile[] = [
   },
   {
     path: "/animation-library/masculine/glb/dance/F_Dances_007.glb",
-    description: "Dance with spinning and dramatic pose transitions",
+    description: "Backflip",
   },
   {
     path: "/animation-library/masculine/glb/dance/M_Dances_001.glb",
@@ -40,7 +40,7 @@ export const ANIMATION_FILES: AnimationFile[] = [
   },
   {
     path: "/animation-library/masculine/glb/dance/M_Dances_003.glb",
-    description: "Backflip",
+    description: "Idk, just a dance",
   },
   {
     path: "/animation-library/masculine/glb/dance/M_Dances_004.glb",
@@ -56,7 +56,7 @@ export const ANIMATION_FILES: AnimationFile[] = [
   },
   {
     path: "/animation-library/masculine/glb/dance/M_Dances_007.glb",
-    description: "Dance with dramatic flair and showmanship",
+    description: "idk, just a dance move",
   },
   {
     path: "/animation-library/masculine/glb/dance/M_Dances_008.glb",

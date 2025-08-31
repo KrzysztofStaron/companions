@@ -26,7 +26,7 @@ export default function AnimationStateMachine({
     queue: [],
   });
 
-  const idleAnimation = "Masculine idle with calm presence and relaxed energy";
+  const idleAnimation = "Idle with calm presence and relaxed energy";
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Function to play an animation

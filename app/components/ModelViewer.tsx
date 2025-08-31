@@ -86,9 +86,7 @@ function AvatarAnimator({
           mixerRef.current = new THREE.AnimationMixer(characterScene);
 
           // Find and play an idle animation by default
-          const idleIndex = loadedAnimations.findIndex(
-            anim => anim.name.toLowerCase().includes("idle") && anim.name.toLowerCase().includes("masculine")
-          );
+          const idleIndex = loadedAnimations.findIndex(anim => anim.name.toLowerCase().includes("idle"));
 
           if (idleIndex !== -1) {
             console.log(`Playing idle animation: ${loadedAnimations[idleIndex].name}`);
@@ -179,7 +177,33 @@ function AvatarAnimator({
 
   // Function to play animation by description
   const playAnimationByDescription = (description: string) => {
-    // Simple matching: look for key words in the description
+    console.log(`🎭 playAnimationByDescription called with: "${description}"`);
+    console.log(
+      `📚 Available animations:`,
+      animations.map(a => a.name)
+    );
+
+    // Import the animation descriptions from the loader
+    const { getAvailableAnimationsForLLM } = require("./animation-loader");
+    const availableDescriptions = getAvailableAnimationsForLLM();
+
+    console.log(`🔍 Available descriptions:`, availableDescriptions);
+
+    // First, try to find the exact description match
+    const exactMatch = availableDescriptions.find((desc: string) => desc === description);
+    if (exactMatch) {
+      console.log(`✅ Found exact match: "${exactMatch}"`);
+      // Find the corresponding animation by index
+      const descriptionIndex = availableDescriptions.indexOf(exactMatch);
+      if (descriptionIndex !== -1 && descriptionIndex < animations.length) {
+        console.log(`🎯 Playing animation at index ${descriptionIndex}: ${animations[descriptionIndex].name}`);
+        playAnimation(descriptionIndex);
+        return true;
+      }
+    }
+
+    // Fallback to keyword matching if no exact match
+    console.log(`🔍 No exact match, trying keyword matching...`);
     const descriptionLower = description.toLowerCase();
 
     // Find animation by matching key words
@@ -187,30 +211,68 @@ function AvatarAnimator({
       const nameLower = anim.name.toLowerCase();
       const pathLower = anim.path.toLowerCase();
 
+      console.log(`🔍 Checking animation: "${anim.name}" against description: "${description}"`);
+
       // Check if the description contains key words that match the animation
-      if (descriptionLower.includes("feminine") && pathLower.includes("/feminine/")) return true;
-      if (descriptionLower.includes("masculine") && pathLower.includes("/masculine/")) return true;
-      if (descriptionLower.includes("idle") && nameLower.includes("idle")) return true;
-      if (descriptionLower.includes("dance") && nameLower.includes("dance")) return true;
-      if (descriptionLower.includes("run") && nameLower.includes("run")) return true;
-      if (descriptionLower.includes("walk") && nameLower.includes("walk")) return true;
-      if (descriptionLower.includes("jog") && nameLower.includes("jog")) return true;
-      if (descriptionLower.includes("talk") && nameLower.includes("talk")) return true;
-      if (descriptionLower.includes("expression") && nameLower.includes("expression")) return true;
+      if (descriptionLower.includes("idle") && nameLower.includes("idle")) {
+        console.log(`✅ Matched idle: "${anim.name}"`);
+        return true;
+      }
+      if (descriptionLower.includes("dance") && nameLower.includes("dance")) {
+        console.log(`✅ Matched dance: "${anim.name}"`);
+        return true;
+      }
+      if (descriptionLower.includes("run") && nameLower.includes("run")) {
+        console.log(`✅ Matched run: "${anim.name}"`);
+        return true;
+      }
+      if (descriptionLower.includes("walk") && nameLower.includes("walk")) {
+        console.log(`✅ Matched walk: "${anim.name}"`);
+        return true;
+      }
+      if (descriptionLower.includes("jog") && nameLower.includes("jog")) {
+        console.log(`✅ Matched jog: "${anim.name}"`);
+        return true;
+      }
+      if (descriptionLower.includes("talk") && nameLower.includes("talk")) {
+        console.log(`✅ Matched talk: "${anim.name}"`);
+        return true;
+      }
+      if (descriptionLower.includes("expression") && nameLower.includes("expression")) {
+        console.log(`✅ Matched expression: "${anim.name}"`);
+        return true;
+      }
+      if (descriptionLower.includes("crouch") && nameLower.includes("crouch")) {
+        console.log(`✅ Matched crouch: "${anim.name}"`);
+        return true;
+      }
+      if (descriptionLower.includes("falling") && nameLower.includes("falling")) {
+        console.log(`✅ Matched falling: "${anim.name}"`);
+        return true;
+      }
+      if (descriptionLower.includes("jump") && nameLower.includes("jump")) {
+        console.log(`✅ Matched jump: "${anim.name}"`);
+        return true;
+      }
+      if (descriptionLower.includes("strafe") && nameLower.includes("strafe")) {
+        console.log(`✅ Matched strafe: "${anim.name}"`);
+        return true;
+      }
 
       return false;
     });
 
     if (animationIndex !== -1) {
-      console.log(`Found animation for description "${description}": ${animations[animationIndex].name}`);
+      console.log(`🎯 SUCCESS: Found animation for description "${description}": ${animations[animationIndex].name}`);
       playAnimation(animationIndex);
       return true;
     } else {
-      console.warn(`Animation with description "${description}" not found`);
+      console.warn(`❌ FAILED: Animation with description "${description}" not found`);
       console.log(
-        "Available animations:",
+        "📚 Available animations:",
         animations.map(a => a.name)
       );
+      console.log(`🔍 Available descriptions:`, availableDescriptions);
       return false;
     }
   };
@@ -240,6 +302,13 @@ function AvatarAnimator({
     (window as any).playAnimationByDescription = playAnimationByDescription;
     (window as any).ANIMATION_NAMES = ANIMATION_NAMES;
     (window as any).animations = animations;
+
+    console.log("🌐 Global functions exposed:", {
+      playAnimation: !!(window as any).playAnimation,
+      playAnimationByDescription: !!(window as any).playAnimationByDescription,
+      ANIMATION_NAMES: !!(window as any).ANIMATION_NAMES,
+      animations: !!(window as any).animations,
+    });
   }, [animations]);
 
   return (
@@ -437,7 +506,7 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
               onClick={() => {
                 if ((window as any).playAnimationByDescription) {
                   const success = (window as any).playAnimationByDescription(
-                    "Feminine idle with gentle weight shifting and relaxed posture"
+                    "Idle with gentle weight shifting and relaxed posture"
                   );
                   console.log("Test animation result:", success);
                 }

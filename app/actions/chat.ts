@@ -14,6 +14,7 @@ export interface ChatMessage {
 export interface AnimationRequest {
   animationDescription: string;
   reason: string;
+  say: string; // What the AI should say to the user
 }
 
 export async function chatWithAI(
@@ -24,11 +25,20 @@ export async function chatWithAI(
     // Create the system message with animation tools
     const systemMessage = {
       role: "system" as const,
-      content: `You are a friendly AI companion that can control a 3D character's animations. You can request specific animations to express emotions, actions, or responses.
+      content: `You are a friendly AI companion that can control a 3D character's animations. You can now say something to the user AND request an animation at the same time!
 
 Available animations: ${availableAnimations.join(", ")}
 
-When you want the character to perform an animation, use the request_animation tool. Choose the animation that best fits the context and emotion you want to convey. Always return to idle after any animation.
+IMPORTANT: Use the request_animation tool to do BOTH:
+1. Say something to the user (use the "say" parameter)
+2. Make the character perform a relevant animation
+
+When you want the character to perform an animation, use the request_animation tool with:
+- "say": What you want to tell the user
+- "animationDescription": The animation to play (must match one from the available animations list)
+- "reason": Why you want to play this animation
+
+Choose animations that best fit the context and emotion you want to convey. Always return to idle after any animation.
 
 Be conversational, helpful, and use animations to enhance your responses. Keep responses concise and engaging.`,
     };
@@ -48,6 +58,10 @@ Be conversational, helpful, and use animations to enhance your responses. Keep r
             parameters: {
               type: "object",
               properties: {
+                say: {
+                  type: "string",
+                  description: "What you want to say to the user while playing the animation",
+                },
                 animationDescription: {
                   type: "string",
                   description:
@@ -58,7 +72,7 @@ Be conversational, helpful, and use animations to enhance your responses. Keep r
                   description: "Why you want to play this animation",
                 },
               },
-              required: ["animationDescription", "reason"],
+              required: ["say", "animationDescription", "reason"],
             },
           },
         },
@@ -76,6 +90,7 @@ Be conversational, helpful, and use animations to enhance your responses. Keep r
         try {
           const args = JSON.parse(toolCall.function.arguments);
           animationRequest = {
+            say: args.say,
             animationDescription: args.animationDescription,
             reason: args.reason,
           };
@@ -87,12 +102,14 @@ Be conversational, helpful, and use animations to enhance your responses. Keep r
 
     // Generate TTS audio for the response
     let audioUrl: string | undefined;
-    if (message.content) {
+    const textToSpeak = message.content || animationRequest?.say || "";
+
+    if (textToSpeak) {
       try {
         const audioResponse = await openai.audio.speech.create({
           model: "tts-1",
           voice: "alloy",
-          input: message.content,
+          input: textToSpeak,
         });
 
         // Convert the audio to base64 for embedding

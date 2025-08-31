@@ -54,34 +54,44 @@ export default function Home() {
         // Get AI response with animation request
         const aiResponse = await chatWithAI([...messages, userMessage], availableAnimations);
 
-        // Add AI response to chat
+        // Add AI response to chat - use the "say" parameter if animation is requested, otherwise use the response
         const assistantMessage: ChatMessage = {
           role: "assistant",
-          content: aiResponse.response,
+          content: aiResponse.animationRequest?.say || aiResponse.response,
         };
         setMessages(prev => [...prev, assistantMessage]);
 
         // Handle animation request if present
         if (aiResponse.animationRequest) {
-          console.log("AI requested animation:", aiResponse.animationRequest);
+          console.log("🎭 AI requested animation:", aiResponse.animationRequest);
+          console.log("💬 AI says:", aiResponse.animationRequest.say);
 
           // Use the global playAnimationByDescription function
           if ((window as any).playAnimationByDescription) {
+            console.log("✅ playAnimationByDescription function found, calling it...");
             const success = (window as any).playAnimationByDescription(
               aiResponse.animationRequest.animationDescription
             );
+            console.log("🎯 Animation result:", success);
 
             if (success) {
+              console.log("🔄 Setting up return to idle...");
               // Return to idle after animation completes
               setTimeout(() => {
-                const idleIndex = (window as any).ANIMATION_NAMES?.findIndex(
-                  (name: string) => name.toLowerCase().includes("idle") && name.toLowerCase().includes("masculine")
+                const idleIndex = (window as any).ANIMATION_NAMES?.findIndex((name: string) =>
+                  name.toLowerCase().includes("idle")
                 );
                 if (idleIndex !== -1 && (window as any).playAnimation) {
                   (window as any).playAnimation(idleIndex);
                 }
               }, 5000); // Default 5 second animation duration
             }
+          } else {
+            console.error("❌ playAnimationByDescription function not found!");
+            console.log(
+              "🔍 Available global functions:",
+              Object.keys(window as any).filter(key => key.includes("play"))
+            );
           }
         }
 
@@ -89,6 +99,12 @@ export default function Home() {
         if (aiResponse.audioUrl) {
           const audio = new Audio(aiResponse.audioUrl);
           audio.play().catch(console.error);
+        }
+
+        // If no audio URL but we have a "say" message, generate TTS locally
+        if (!aiResponse.audioUrl && aiResponse.animationRequest?.say) {
+          // For now, we'll just log this. In a real implementation, you might want to use a local TTS solution
+          console.log("🎤 No TTS audio generated, but AI said:", aiResponse.animationRequest.say);
         }
       } catch (error) {
         console.error("Error in AI chat:", error);
