@@ -349,30 +349,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Animation System Status - Only in Development */}
-      {isDevelopment && (
-        <div className="absolute top-8 left-8 z-50">
-          <div
-            className={`px-4 py-2 rounded-lg text-white text-sm ${
-              animationSystemReady ? "bg-green-600" : "bg-yellow-600"
-            }`}
-          >
-            {animationSystemReady ? "Animation System Ready" : "Loading Animation System..."}
-
-            {/* Idle Cycling Status */}
-            {animationSystemReady && (
-              <div
-                className={`mt-2 px-4 py-2 rounded-lg text-white text-sm ${
-                  isInIdleState ? "bg-blue-600" : "bg-gray-600"
-                }`}
-              >
-                {isInIdleState ? "🔄 Idle Cycling Active" : "⏸️ Idle Cycling Paused"}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Chat Messages - Only visible in development when debug is enabled */}
       {isDevelopment && showDebugUI && messages.length > 0 && (
         <div className="absolute top-20 left-8 right-8 max-h-64 overflow-y-auto bg-black/20 backdrop-blur-md rounded-lg p-4 border border-white/20 z-30">

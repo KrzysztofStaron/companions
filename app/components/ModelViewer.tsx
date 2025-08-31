@@ -353,7 +353,7 @@ function AvatarAnimator({
           ref={modelRef}
           object={characterScene}
           scale={[1, 1, 1]}
-          position={[0, -2, 0]}
+          position={[0, -1, 0]}
           rotation={[0, 0, 0]}
         />
       )}
@@ -364,11 +364,12 @@ function AvatarAnimator({
 export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boolean }) {
   const [currentAnimationIndex, setCurrentAnimationIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [cameraDistance, setCameraDistance] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
   const orbitControlsRef = useRef<any>(null);
   const [animationError, setAnimationError] = useState<string | null>(null);
   const [animationLoading, setAnimationLoading] = useState(true);
+  const [isRotating, setIsRotating] = useState(false);
+  const returnToCenterRef = useRef<number | null>(null);
 
   const nextAnimation = () => {
     const nextIndex = (currentAnimationIndex + 1) % ANIMATION_NAMES.length;
@@ -409,27 +410,76 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
     }
   };
 
-  const zoomIn = () => {
-    if (orbitControlsRef.current) {
-      const newDistance = Math.max(1, cameraDistance - 1);
-      setCameraDistance(newDistance);
-      orbitControlsRef.current.dollyIn(1.5);
-      orbitControlsRef.current.update();
+  // Function to smoothly return to center
+  const returnToCenter = () => {
+    if (!orbitControlsRef.current) return;
+
+    const controls = orbitControlsRef.current;
+    const currentAzimuth = controls.getAzimuthalAngle();
+
+    // Cancel any existing return animation
+    if (returnToCenterRef.current) {
+      cancelAnimationFrame(returnToCenterRef.current);
+      returnToCenterRef.current = null;
+    }
+
+    const startTime = Date.now();
+    const duration = 1000; // 1 second
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Smooth easing function
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+
+      const newAzimuth = currentAzimuth * (1 - easeOut);
+      controls.setAzimuthalAngle(newAzimuth);
+
+      if (progress < 1) {
+        returnToCenterRef.current = requestAnimationFrame(animate);
+      } else {
+        controls.setAzimuthalAngle(0);
+        returnToCenterRef.current = null;
+      }
+    };
+
+    returnToCenterRef.current = requestAnimationFrame(animate);
+  };
+
+  // Handle rotation start
+  const handleRotationStart = () => {
+    setIsRotating(true);
+    // Cancel any return to center animation
+    if (returnToCenterRef.current) {
+      cancelAnimationFrame(returnToCenterRef.current);
+      returnToCenterRef.current = null;
     }
   };
 
-  const zoomOut = () => {
-    if (orbitControlsRef.current) {
-      const newDistance = Math.min(20, cameraDistance + 1);
-      setCameraDistance(newDistance);
-      orbitControlsRef.current.dollyOut(1.5);
-      orbitControlsRef.current.update();
-    }
+  // Handle rotation end
+  const handleRotationEnd = () => {
+    setIsRotating(false);
+    // Start return to center after a short delay
+    setTimeout(() => {
+      if (!isRotating) {
+        returnToCenter();
+      }
+    }, 500);
   };
+
+  // Cleanup return to center animation on unmount
+  useEffect(() => {
+    return () => {
+      if (returnToCenterRef.current) {
+        cancelAnimationFrame(returnToCenterRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="w-full h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <Canvas camera={{ position: [0, 2, cameraDistance], fov: 75 }} style={{ background: "transparent" }}>
+      <Canvas camera={{ position: [0, 0, 4], fov: 75 }} style={{ background: "transparent" }}>
         {/* Lighting */}
         <ambientLight intensity={0.5} />
         <directionalLight position={[10, 10, 5]} intensity={1} />
@@ -446,7 +496,13 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
           enableRotate={true}
           autoRotate={false}
           minDistance={1}
-          maxDistance={20}
+          maxDistance={5}
+          minAzimuthAngle={-Math.PI / 4} // -45 degrees
+          maxAzimuthAngle={Math.PI / 4} // +45 degrees
+          minPolarAngle={0} // Prevent looking down (0 = horizontal)
+          maxPolarAngle={Math.PI / 2} // Allow looking up (90 degrees up)
+          onStart={handleRotationStart}
+          onEnd={handleRotationEnd}
         />
 
         {/* Environment for better reflections */}
@@ -505,27 +561,6 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
           >
             {isPlaying ? "Pause" : "Play"}
           </button>
-
-          {/* Zoom Controls */}
-          <div className="border-t border-slate-600 pt-2 mt-2">
-            <div className="text-xs text-slate-400 mb-1 text-center">Zoom</div>
-            <div className="flex gap-1">
-              <button
-                onClick={zoomIn}
-                className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg font-medium transition-colors text-sm"
-                title="Zoom In"
-              >
-                +
-              </button>
-              <button
-                onClick={zoomOut}
-                className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg font-medium transition-colors text-sm"
-                title="Zoom Out"
-              >
-                −
-              </button>
-            </div>
-          </div>
 
           {/* Test Animation System */}
           <div className="border-t border-slate-600 pt-2 mt-2">
