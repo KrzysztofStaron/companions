@@ -3,12 +3,13 @@
 import ModelViewer from "./components/ModelViewer";
 import LiquidGlass from "./components/ui/LiquidGlass";
 import AnimationStateMachine from "./components/AnimationStateMachine";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { chatWithAI, ChatMessage } from "./actions/chat";
 import { getAvailableAnimationsForLLM } from "./components/animation-loader";
 
 export default function Home() {
   const [showDebugUI, setShowDebugUI] = useState(false);
+  const isDevelopment = process.env.NODE_ENV === 'development';
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -17,6 +18,9 @@ export default function Home() {
   const [isInIdleState, setIsInIdleState] = useState(false);
   const [idleCycleTimer, setIdleCycleTimer] = useState<NodeJS.Timeout | null>(null);
   const [animationState, setAnimationState] = useState<any>(null);
+  const [hasSentGreeting, setHasSentGreeting] = useState(false);
+  const [greetingComplete, setGreetingComplete] = useState(false);
+  const greetingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get available animations for the LLM
   useEffect(() => {
@@ -78,6 +82,15 @@ export default function Home() {
   useEffect(() => {
     console.log(`🔄 State changed - animationSystemReady: ${animationSystemReady}, isInIdleState: ${isInIdleState}`);
   }, [animationSystemReady, isInIdleState]);
+
+  // Cleanup greeting timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (greetingTimeoutRef.current) {
+        clearTimeout(greetingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // OLD IDLE CYCLING LOGIC - DISABLED (now using AnimationStateMachine)
   // The AnimationStateMachine handles idle cycling automatically
@@ -168,9 +181,148 @@ export default function Home() {
     }
   };
 
+  // Auto-greet and wave once animations are fully ready
+  useEffect(() => {
+    if (hasSentGreeting || !animationSystemReady || isLoading) return;
+
+    // Check if animations are actually loaded and ready
+    const checkAndSendGreeting = () => {
+      const animationsAvailable =
+        typeof window !== "undefined" &&
+        (window as any).animations &&
+        Array.isArray((window as any).animations) &&
+        (window as any).animations.length > 0;
+
+      if (!animationsAvailable) {
+        console.log("Waiting for animations to load...");
+        setTimeout(checkAndSendGreeting, 500);
+        return;
+      }
+
+      console.log("🎉 Animation system fully ready! Sending greeting...");
+
+      // Safety timeout - force complete after 15 seconds if something goes wrong
+      greetingTimeoutRef.current = setTimeout(() => {
+        console.log("🚨 Safety timeout: forcing greeting complete after 15 seconds");
+        setGreetingComplete(true);
+        greetingTimeoutRef.current = null;
+      }, 15000);
+
+      const sendGreeting = async () => {
+        setHasSentGreeting(true);
+
+        const userMessage: ChatMessage = {
+          role: "user",
+          content: "Say hello and wave.",
+        };
+
+        console.log("Sending greeting:", userMessage);
+        // Surface in debug chat
+        setMessages(prev => [...prev, userMessage]);
+        setIsLoading(true);
+
+        try {
+          const aiResponse = await chatWithAI([userMessage], availableAnimations);
+
+          const assistantMessage: ChatMessage = {
+            role: "assistant",
+            content: aiResponse.animationRequest?.say || aiResponse.response,
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+
+          if (aiResponse.animationRequest) {
+            console.log("🎭 Greeting animation request:", aiResponse.animationRequest);
+            if ((window as any).playAnimationByDescription) {
+              const success = (window as any).playAnimationByDescription(
+                aiResponse.animationRequest.animationDescription
+              );
+              console.log("🎯 Greeting animation result:", success);
+
+              if (success) {
+                setTimeout(() => {
+                  if ((window as any).returnToIdle) {
+                    (window as any).returnToIdle();
+                  }
+                }, 5000);
+              }
+            }
+          }
+
+          if (aiResponse.audioUrl) {
+            const audio = new Audio(aiResponse.audioUrl);
+            audio.play().catch(console.error);
+
+            // Wait for audio to finish, then mark greeting complete
+            audio.onended = () => {
+              console.log("🎵 Greeting audio finished");
+              setGreetingComplete(true);
+              if (greetingTimeoutRef.current) {
+                clearTimeout(greetingTimeoutRef.current);
+                greetingTimeoutRef.current = null;
+              }
+            };
+          } else {
+            // No audio, wait for animation timeout then mark complete
+            setTimeout(() => {
+              console.log("⏰ Greeting animation timeout finished");
+              setGreetingComplete(true);
+              if (greetingTimeoutRef.current) {
+                clearTimeout(greetingTimeoutRef.current);
+                greetingTimeoutRef.current = null;
+              }
+            }, 5500);
+          }
+
+          // Also set complete after animation timeout as fallback
+          setTimeout(() => {
+            console.log("⏰ Fallback: marking greeting complete after 6 seconds");
+            setGreetingComplete(true);
+            if (greetingTimeoutRef.current) {
+              clearTimeout(greetingTimeoutRef.current);
+              greetingTimeoutRef.current = null;
+            }
+          }, 6000);
+        } catch (error) {
+          console.error("Error in initial greeting:", error);
+          setGreetingComplete(true); // Mark as complete on error
+          if (greetingTimeoutRef.current) {
+            clearTimeout(greetingTimeoutRef.current);
+            greetingTimeoutRef.current = null;
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      void sendGreeting();
+    };
+
+    // Small delay to ensure everything is fully initialized
+    setTimeout(checkAndSendGreeting, 1000);
+  }, [animationSystemReady, hasSentGreeting, isLoading, availableAnimations]);
+
   return (
     <div className="relative w-full h-screen">
-      <ModelViewer showDebugUI={showDebugUI} />
+      {/* Dark Loading Screen */}
+      {!greetingComplete && (
+        <div className="absolute inset-0 z-50 bg-black flex items-center justify-center">
+          <div className="text-center text-white">
+            <div className="mb-8">
+              <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto"></div>
+            </div>
+            <h2 className="text-2xl font-light mb-4">Initializing AI Companion</h2>
+            <p className="text-white/60 text-sm">
+              {animationSystemReady
+                ? hasSentGreeting
+                  ? "Greeting you..."
+                  : "Preparing greeting..."
+                : "Loading animations..."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <ModelViewer showDebugUI={showDebugUI && isDevelopment} />
 
       {/* Animation State Machine for managing idle cycling */}
       <AnimationStateMachine

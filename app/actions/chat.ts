@@ -108,7 +108,7 @@ Be conversational, helpful, and use animations to enhance your responses. Keep r
       try {
         const audioResponse = await openai.audio.speech.create({
           model: "tts-1",
-          voice: "alloy",
+          voice: "fable",
           input: textToSpeak,
         });
 
