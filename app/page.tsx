@@ -3,7 +3,7 @@
 import ModelViewer from "./components/ModelViewer";
 import LiquidGlass from "./components/ui/LiquidGlass";
 import { useState, useEffect } from "react";
-import { AnimationRequest, chatWithAI, ChatMessage } from "./actions/chat";
+import { chatWithAI, ChatMessage } from "./actions/chat";
 import { getAvailableAnimationsForLLM } from "./components/animation-loader";
 
 export default function Home() {

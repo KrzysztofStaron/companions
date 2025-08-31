@@ -126,11 +126,15 @@ Be conversational, helpful, and use animations to enhance your responses. Keep r
       animationRequest,
       audioUrl,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in AI chat:", error);
 
     // Check if it's a network connectivity issue
-    if (error.cause?.code === "EAI_AGAIN" || error.message?.includes("fetch failed")) {
+    if (
+      error instanceof Error &&
+      ((error.cause && typeof error.cause === "object" && "code" in error.cause && error.cause.code === "EAI_AGAIN") ||
+        error.message?.includes("fetch failed"))
+    ) {
       return {
         response:
           "I'm having trouble connecting to my AI services right now. This might be due to network issues or the service being temporarily unavailable. You can still use the debug controls to test animations manually!",
@@ -138,7 +142,7 @@ Be conversational, helpful, and use animations to enhance your responses. Keep r
     }
 
     // Check if it's an API key issue
-    if (error.status === 401) {
+    if (error && typeof error === "object" && "status" in error && error.status === 401) {
       return {
         response: "I'm having trouble authenticating with my AI services. Please check your API configuration.",
       };

@@ -12,197 +12,112 @@ export const ANIMATION_FILES: AnimationFile[] = [
   // Masculine Dance Animations
   {
     path: "/animation-library/masculine/glb/dance/F_Dances_001.glb",
-    description: "Dance move with graceful arm movements and hip swaying",
+    description: "Dancy spin",
   },
   {
     path: "/animation-library/masculine/glb/dance/F_Dances_004.glb",
-    description: "Dance with twirling motion and flowing dress movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/dance/F_Dances_005.glb",
-    description: "Dance with rhythmic stepping and arm coordination",
-  },
-  {
-    path: "/animation-library/masculine/glb/dance/F_Dances_006.glb",
-    description: "Dance with elegant hand gestures and body isolation",
+    description: "cartwheel",
   },
   {
     path: "/animation-library/masculine/glb/dance/F_Dances_007.glb",
     description: "Backflip",
   },
   {
-    path: "/animation-library/masculine/glb/dance/M_Dances_001.glb",
-    description: "Dance with confident stance and rhythmic movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/dance/M_Dances_002.glb",
-    description: "Dance with energetic footwork and arm coordination",
-  },
-  {
-    path: "/animation-library/masculine/glb/dance/M_Dances_003.glb",
-    description: "Idk, just a dance",
-  },
-  {
-    path: "/animation-library/masculine/glb/dance/M_Dances_004.glb",
-    description: "Dance with powerful movements and strong presence",
-  },
-  {
-    path: "/animation-library/masculine/glb/dance/M_Dances_005.glb",
-    description: "Dance with complex choreography and style",
-  },
-  {
-    path: "/animation-library/masculine/glb/dance/M_Dances_006.glb",
-    description: "Dance with fluid motion and artistic expression",
-  },
-  {
-    path: "/animation-library/masculine/glb/dance/M_Dances_007.glb",
-    description: "idk, just a dance move",
-  },
-  {
     path: "/animation-library/masculine/glb/dance/M_Dances_008.glb",
-    description: "Dance with technical precision and rhythm",
+    description: "Dance",
   },
   {
     path: "/animation-library/masculine/glb/dance/M_Dances_009.glb",
-    description: "Dance with creative moves and personality",
+    description: "Snake hands dance",
   },
-  {
-    path: "/animation-library/masculine/glb/dance/M_Dances_011.glb",
-    description: "Dance with smooth flow and musical timing",
-  },
-
   // Masculine Expression Animations
   {
     path: "/animation-library/masculine/glb/expression/F_Talking_Variations_001.glb",
-    description: "Talking gesture with hand movements and head nods",
+    description: "Nervous talking",
   },
   {
     path: "/animation-library/masculine/glb/expression/F_Talking_Variations_002.glb",
-    description: "Talking with expressive facial movements and gestures",
+    description: "Talking",
   },
   {
     path: "/animation-library/masculine/glb/expression/F_Talking_Variations_003.glb",
-    description: "Talking with animated hand gestures and body language",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/F_Talking_Variations_004.glb",
-    description: "Talking with emphasis and dramatic expression",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/F_Talking_Variations_005.glb",
-    description: "Talking with casual gestures and relaxed posture",
+    description: "Pretentious talking",
   },
   {
     path: "/animation-library/masculine/glb/expression/F_Talking_Variations_006.glb",
-    description: "Talking with formal gestures and professional demeanor",
+    description: "Silly talking",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_001.glb",
-    description: "Standing expression with confident posture and slight movements",
+    description: "Hand waving ( hello )",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_002.glb",
-    description: "Standing with attentive listening pose and subtle gestures",
+    description: "Pointing out something",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_004.glb",
-    description: "Standing with casual stance and relaxed expression",
+    description: "Nodding ( yes )",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_005.glb",
-    description: "Standing with formal posture and professional appearance",
+    description: "Confused",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_006.glb",
-    description: "Standing with friendly expression and open body language",
+    description: "Tired stretching",
   },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_007.glb",
-    description: "Standing with thoughtful pose and contemplative expression",
-  },
+
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_008.glb",
-    description: "Standing with energetic expression and dynamic posture",
+    description: "Come here",
   },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_009.glb",
-    description: "Standing with calm expression and steady presence",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_010.glb",
-    description: "Standing with alert expression and ready stance",
-  },
+
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_011.glb",
-    description: "Standing with warm expression and welcoming posture",
+    description: "shaking your head ( no )",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_012.glb",
-    description: "Standing with serious expression and focused attention",
+    description: "Double thumbs up",
   },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_013.glb",
-    description: "Standing with playful expression and relaxed energy",
-  },
+
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_014.glb",
-    description: "Standing with confident expression and strong presence",
+    description: "Looking side to side",
   },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_015.glb",
-    description: "Standing with friendly expression and approachable demeanor",
-  },
+
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_016.glb",
-    description: "Standing with calm expression and steady composure",
+    description: "Sneaky thumbs down",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_017.glb",
-    description: "Standing with attentive expression and listening pose",
+    description: "Thumbs down visible",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_018.glb",
-    description: "Standing with relaxed expression and comfortable stance",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Talking_Variations_001.glb",
-    description: "Talking with clear hand gestures and confident speech",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Talking_Variations_002.glb",
-    description: "Talking with expressive movements and engaging presence",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Talking_Variations_003.glb",
-    description: "Talking with animated gestures and dynamic expression",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Talking_Variations_004.glb",
-    description: "Talking with emphasis and powerful communication",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Talking_Variations_005.glb",
-    description: "Talking with casual gestures and relaxed communication",
+    description: "I'm gonna kill you",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Talking_Variations_006.glb",
-    description: "Talking with formal gestures and professional communication",
+    description: "Gesticulating 6",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Talking_Variations_007.glb",
-    description: "Talking with friendly gestures and warm communication",
+    description: "Gesticulating 7",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Talking_Variations_008.glb",
-    description: "Talking with thoughtful gestures and measured speech",
+    description: "Gesticulating 8",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Talking_Variations_009.glb",
-    description: "Talking with energetic gestures and dynamic speech",
+    description: "Gesticulating 9",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Talking_Variations_010.glb",
-    description: "Talking with calm gestures and steady communication",
+    description: "Gesticulating 10",
   },
 
   // Masculine Idle Animations
@@ -313,14 +228,6 @@ export const ANIMATION_FILES: AnimationFile[] = [
     description: "Crouched walking backwards with cautious retreat",
   },
   {
-    path: "/animation-library/masculine/glb/locomotion/F_Falling_Idle_000.glb",
-    description: "Falling idle pose with relaxed falling animation",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Falling_Idle_001.glb",
-    description: "Falling idle with gentle descent and relaxed pose",
-  },
-  {
     path: "/animation-library/masculine/glb/locomotion/F_Jog_001.glb",
     description: "Jogging with natural running motion and good form",
   },
@@ -377,10 +284,6 @@ export const ANIMATION_FILES: AnimationFile[] = [
     description: "Walking with jumping motion and playful movement",
   },
   {
-    path: "/animation-library/masculine/glb/locomotion/F_Walk_Jump_002.glb",
-    description: "Walking with jumping motion and energetic movement",
-  },
-  {
     path: "/animation-library/masculine/glb/locomotion/F_Walk_Strafe_Left_001.glb",
     description: "Walking to the left with side-stepping motion",
   },
@@ -425,10 +328,6 @@ export const ANIMATION_FILES: AnimationFile[] = [
     description: "Jogging with jumping motion and dynamic movement",
   },
   {
-    path: "/animation-library/masculine/glb/locomotion/M_Jog_Jump_002.glb",
-    description: "Jogging with jumping motion and energetic movement",
-  },
-  {
     path: "/animation-library/masculine/glb/locomotion/M_Jog_Strafe_Left_001.glb",
     description: "Jogging to the left with side-stepping motion",
   },
@@ -447,10 +346,6 @@ export const ANIMATION_FILES: AnimationFile[] = [
   {
     path: "/animation-library/masculine/glb/locomotion/M_Run_Jump_001.glb",
     description: "Running with jumping motion and dynamic movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Run_Jump_002.glb",
-    description: "Running with jumping motion and energetic movement",
   },
   {
     path: "/animation-library/masculine/glb/locomotion/M_Run_Strafe_Left_002.glb",
@@ -477,14 +372,6 @@ export const ANIMATION_FILES: AnimationFile[] = [
     description: "Walking with jumping motion and playful movement",
   },
   {
-    path: "/animation-library/masculine/glb/locomotion/M_Walk_Jump_002.glb",
-    description: "Walking with jumping motion and energetic movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/M_Walk_Jump_003.glb",
-    description: "Walking with jumping motion and dynamic movement",
-  },
-  {
     path: "/animation-library/masculine/glb/locomotion/M_Walk_Strafe_Left_002.glb",
     description: "Walking to the left with side-stepping motion",
   },
@@ -495,7 +382,7 @@ export const ANIMATION_FILES: AnimationFile[] = [
 ];
 
 // Generate descriptive names for all animations (for backward compatibility)
-export const ANIMATION_NAMES = ANIMATION_FILES.map((file, index) => {
+export const ANIMATION_NAMES = ANIMATION_FILES.map(file => {
   const fileName = file.path.split("/").pop()?.replace(".glb", "") || "";
   const category = file.path.includes("/dance/")
     ? "Dance"

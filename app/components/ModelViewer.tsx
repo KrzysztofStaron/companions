@@ -6,7 +6,7 @@ import { useFrame } from "@react-three/fiber";
 import { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { ANIMATION_FILES, ANIMATION_NAMES } from "./animation-loader";
+import { ANIMATION_FILES, ANIMATION_NAMES, getAvailableAnimationsForLLM } from "./animation-loader";
 
 // Main character model (this should be your base character without animations)
 const CHARACTER_MODEL = "/models/character.glb";
@@ -44,8 +44,28 @@ function AvatarAnimator({
     onLoadingChange?.(isLoading);
   }, [isLoading, onLoadingChange]);
 
-  // Load all animations
+  // Function to play a specific animation
+  const playAnimation = (index: number) => {
+    if (!mixerRef.current || index < 0 || index >= animations.length) return;
+
+    // Stop current animation
+    if (currentActionRef.current) {
+      currentActionRef.current.stop();
+    }
+
+    // Play new animation
+    const newAction = mixerRef.current.clipAction(animations[index].clip);
+    newAction.setLoop(THREE.LoopRepeat, Infinity);
+    newAction.play();
+
+    currentActionRef.current = newAction;
+    setCurrentAnimationIndex(index);
+  };
+
+  // Load animations when character scene is ready
   useEffect(() => {
+    if (!characterScene) return;
+
     async function loadAnimations() {
       setIsLoading(true);
       setError(null);
@@ -112,24 +132,6 @@ function AvatarAnimator({
     loadAnimations();
   }, [characterScene]);
 
-  // Function to play a specific animation
-  const playAnimation = (index: number) => {
-    if (!mixerRef.current || index < 0 || index >= animations.length) return;
-
-    // Stop current animation
-    if (currentActionRef.current) {
-      currentActionRef.current.stop();
-    }
-
-    // Play new animation
-    const newAction = mixerRef.current.clipAction(animations[index].clip);
-    newAction.setLoop(THREE.LoopRepeat, Infinity);
-    newAction.play();
-
-    currentActionRef.current = newAction;
-    setCurrentAnimationIndex(index);
-  };
-
   // Function to play animation once with callback
   const playAnimationOnce = (index: number, onEnd?: () => void) => {
     if (!mixerRef.current || index < 0 || index >= animations.length) return;
@@ -168,13 +170,6 @@ function AvatarAnimator({
     }
   };
 
-  // Function to play random animation
-  const playRandomAnimation = () => {
-    if (animations.length === 0) return;
-    const randomIndex = Math.floor(Math.random() * animations.length);
-    playAnimation(randomIndex);
-  };
-
   // Function to play animation by description
   const playAnimationByDescription = (description: string) => {
     console.log(`🎭 playAnimationByDescription called with: "${description}"`);
@@ -184,7 +179,6 @@ function AvatarAnimator({
     );
 
     // Import the animation descriptions from the loader
-    const { getAvailableAnimationsForLLM } = require("./animation-loader");
     const availableDescriptions = getAvailableAnimationsForLLM();
 
     console.log(`🔍 Available descriptions:`, availableDescriptions);
@@ -209,7 +203,6 @@ function AvatarAnimator({
     // Find animation by matching key words
     const animationIndex = animations.findIndex(anim => {
       const nameLower = anim.name.toLowerCase();
-      const pathLower = anim.path.toLowerCase();
 
       console.log(`🔍 Checking animation: "${anim.name}" against description: "${description}"`);
 
@@ -302,14 +295,7 @@ function AvatarAnimator({
     (window as any).playAnimationByDescription = playAnimationByDescription;
     (window as any).ANIMATION_NAMES = ANIMATION_NAMES;
     (window as any).animations = animations;
-
-    console.log("🌐 Global functions exposed:", {
-      playAnimation: !!(window as any).playAnimation,
-      playAnimationByDescription: !!(window as any).playAnimationByDescription,
-      ANIMATION_NAMES: !!(window as any).ANIMATION_NAMES,
-      animations: !!(window as any).animations,
-    });
-  }, [animations]);
+  }, [animations, playAnimation, playAnimationOnce, stopAnimation, playAnimationByDescription]);
 
   return (
     <>
@@ -539,11 +525,11 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
           <div className="max-h-48 overflow-y-auto pr-2">
             <div className="grid grid-cols-2 gap-1 text-sm">
               {ANIMATION_NAMES.filter(
-                (name, index) =>
+                name =>
                   searchTerm === "" ||
                   name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  index === currentAnimationIndex // Always show current animation
-              ).map((name, index) => {
+                  ANIMATION_NAMES.indexOf(name) === currentAnimationIndex // Always show current animation
+              ).map(name => {
                 const originalIndex = ANIMATION_NAMES.indexOf(name);
                 return (
                   <div
@@ -555,8 +541,9 @@ export default function ModelViewer({ showDebugUI = false }: { showDebugUI?: boo
                     }`}
                     onClick={() => {
                       setCurrentAnimationIndex(originalIndex);
-                      if ((window as any).playAnimation) {
-                        (window as any).playAnimation(originalIndex);
+                      const playAnimation = (window as any).playAnimation;
+                      if (typeof playAnimation === "function") {
+                        playAnimation(originalIndex);
                       }
                     }}
                   >

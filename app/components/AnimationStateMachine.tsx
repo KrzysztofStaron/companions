@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getAnimationFileByDescription } from "./animation-loader";
 
 export interface AnimationState {
   currentAnimation: string | null;
@@ -120,6 +119,7 @@ export default function AnimationStateMachine({
 
   // Expose functions globally
   useEffect(() => {
+    // This allows the parent component to control animations
     (window as any).playAnimationByName = (name: string, duration?: number) => {
       if (availableAnimations.includes(name)) {
         playAnimation(name, duration);
@@ -132,7 +132,7 @@ export default function AnimationStateMachine({
     (window as any).returnToIdle = returnToIdle;
     (window as any).stopAnimation = stopAnimation;
     (window as any).queueAnimations = queueAnimations;
-  }, [availableAnimations]);
+  }, [availableAnimations, playAnimation, playAnimationByDescription, returnToIdle, stopAnimation, queueAnimations]);
 
   return null; // This component doesn't render anything, it just manages state
 }
