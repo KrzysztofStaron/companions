@@ -32,19 +32,7 @@ export default function Home() {
     console.log(`🔄 Animation state changed:`, state);
     setAnimationState(state);
     setIsInIdleState(!state.isPlaying);
-
-    // If we have a new animation and it's not already playing, trigger playback
-    if (state.currentAnimation && !state.isPlaying) {
-      // Only trigger playback if this is a different animation than what's currently playing
-      if (!animationState || animationState.currentAnimation !== state.currentAnimation) {
-        console.log(`🎯 State change triggered animation: ${state.currentAnimation}`);
-        if ((window as any).playAnimationByDescription) {
-          (window as any).playAnimationByDescription(state.currentAnimation);
-        } else {
-          console.warn(`❌ playAnimationByDescription function not available`);
-        }
-      }
-    }
+    // Don't trigger animations from state changes - AnimationStateMachine handles this
   };
 
   // Handler for animation changes (kept for compatibility but should be rarely called now)
@@ -201,100 +189,103 @@ export default function Home() {
 
       console.log("🎉 Animation system fully ready! Sending greeting...");
 
-      // Safety timeout - force complete after 15 seconds if something goes wrong
-      greetingTimeoutRef.current = setTimeout(() => {
-        console.log("🚨 Safety timeout: forcing greeting complete after 15 seconds");
-        setGreetingComplete(true);
-        greetingTimeoutRef.current = null;
-      }, 15000);
+      // Wait a bit for idle cycling to stabilize
+      setTimeout(() => {
+        // Safety timeout - force complete after 15 seconds if something goes wrong
+        greetingTimeoutRef.current = setTimeout(() => {
+          console.log("🚨 Safety timeout: forcing greeting complete after 15 seconds");
+          setGreetingComplete(true);
+          greetingTimeoutRef.current = null;
+        }, 15000);
 
-      const sendGreeting = async () => {
-        setHasSentGreeting(true);
+        const sendGreeting = async () => {
+          setHasSentGreeting(true);
 
-        const userMessage: ChatMessage = {
-          role: "user",
-          content: "Say hello and wave.",
-        };
-
-        console.log("Sending greeting:", userMessage);
-        // Surface in debug chat
-        setMessages(prev => [...prev, userMessage]);
-        setIsLoading(true);
-
-        try {
-          const aiResponse = await chatWithAI([userMessage], availableAnimations);
-
-          const assistantMessage: ChatMessage = {
-            role: "assistant",
-            content: aiResponse.animationRequest?.say || aiResponse.response,
+          const userMessage: ChatMessage = {
+            role: "user",
+            content: "Say hello and wave.",
           };
-          setMessages(prev => [...prev, assistantMessage]);
 
-          if (aiResponse.animationRequest) {
-            console.log("🎭 Greeting animation request:", aiResponse.animationRequest);
-            if ((window as any).playAnimationByDescription) {
-              const success = (window as any).playAnimationByDescription(
-                aiResponse.animationRequest.animationDescription
-              );
-              console.log("🎯 Greeting animation result:", success);
+          console.log("Sending greeting:", userMessage);
+          // Surface in debug chat
+          setMessages(prev => [...prev, userMessage]);
+          setIsLoading(true);
 
-              if (success) {
-                setTimeout(() => {
-                  if ((window as any).returnToIdle) {
-                    (window as any).returnToIdle();
-                  }
-                }, 5000);
+          try {
+            const aiResponse = await chatWithAI([userMessage], availableAnimations);
+
+            const assistantMessage: ChatMessage = {
+              role: "assistant",
+              content: aiResponse.animationRequest?.say || aiResponse.response,
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+
+            if (aiResponse.animationRequest) {
+              console.log("🎭 Greeting animation request:", aiResponse.animationRequest);
+              if ((window as any).playAnimationByDescription) {
+                const success = (window as any).playAnimationByDescription(
+                  aiResponse.animationRequest.animationDescription
+                );
+                console.log("🎯 Greeting animation result:", success);
+
+                if (success) {
+                  setTimeout(() => {
+                    if ((window as any).returnToIdle) {
+                      (window as any).returnToIdle();
+                    }
+                  }, 5000);
+                }
               }
             }
-          }
 
-          if (aiResponse.audioUrl) {
-            const audio = new Audio(aiResponse.audioUrl);
-            audio.play().catch(console.error);
+            if (aiResponse.audioUrl) {
+              const audio = new Audio(aiResponse.audioUrl);
+              audio.play().catch(console.error);
 
-            // Wait for audio to finish, then mark greeting complete
-            audio.onended = () => {
-              console.log("🎵 Greeting audio finished");
-              setGreetingComplete(true);
-              if (greetingTimeoutRef.current) {
-                clearTimeout(greetingTimeoutRef.current);
-                greetingTimeoutRef.current = null;
-              }
-            };
-          } else {
-            // No audio, wait for animation timeout then mark complete
+              // Wait for audio to finish, then mark greeting complete
+              audio.onended = () => {
+                console.log("🎵 Greeting audio finished");
+                setGreetingComplete(true);
+                if (greetingTimeoutRef.current) {
+                  clearTimeout(greetingTimeoutRef.current);
+                  greetingTimeoutRef.current = null;
+                }
+              };
+            } else {
+              // No audio, wait for animation timeout then mark complete
+              setTimeout(() => {
+                console.log("⏰ Greeting animation timeout finished");
+                setGreetingComplete(true);
+                if (greetingTimeoutRef.current) {
+                  clearTimeout(greetingTimeoutRef.current);
+                  greetingTimeoutRef.current = null;
+                }
+              }, 5500);
+            }
+
+            // Also set complete after animation timeout as fallback
             setTimeout(() => {
-              console.log("⏰ Greeting animation timeout finished");
+              console.log("⏰ Fallback: marking greeting complete after 6 seconds");
               setGreetingComplete(true);
               if (greetingTimeoutRef.current) {
                 clearTimeout(greetingTimeoutRef.current);
                 greetingTimeoutRef.current = null;
               }
-            }, 5500);
-          }
-
-          // Also set complete after animation timeout as fallback
-          setTimeout(() => {
-            console.log("⏰ Fallback: marking greeting complete after 6 seconds");
-            setGreetingComplete(true);
+            }, 6000);
+          } catch (error) {
+            console.error("Error in initial greeting:", error);
+            setGreetingComplete(true); // Mark as complete on error
             if (greetingTimeoutRef.current) {
               clearTimeout(greetingTimeoutRef.current);
               greetingTimeoutRef.current = null;
             }
-          }, 6000);
-        } catch (error) {
-          console.error("Error in initial greeting:", error);
-          setGreetingComplete(true); // Mark as complete on error
-          if (greetingTimeoutRef.current) {
-            clearTimeout(greetingTimeoutRef.current);
-            greetingTimeoutRef.current = null;
+          } finally {
+            setIsLoading(false);
           }
-        } finally {
-          setIsLoading(false);
-        }
-      };
+        };
 
-      void sendGreeting();
+        void sendGreeting();
+      }, 500); // Small delay for stabilization
     };
 
     // Small delay to ensure everything is fully initialized

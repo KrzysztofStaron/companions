@@ -29,6 +29,7 @@ export default function AnimationStateMachine({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const idleVariationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const currentIdleAnimationRef = useRef<string | null>(null);
+  const lastIdleChangeRef = useRef<number>(0);
 
   // Function to get a random idle animation
   const getRandomIdle = (): string => {
@@ -63,6 +64,22 @@ export default function AnimationStateMachine({
   // Function to handle idle animation completion
   const onIdleAnimationComplete = () => {
     console.log(`🔄 Idle animation completed, cycling to next`);
+
+    // Prevent rapid cycling - add minimum cooldown between idle changes
+    const now = Date.now();
+    const cooldownMs = 2000; // 2 second minimum between idle changes
+    const timeSinceLastChange = now - lastIdleChangeRef.current;
+
+    if (timeSinceLastChange < cooldownMs) {
+      console.log(`⏰ Idle cycling cooldown active (${cooldownMs - timeSinceLastChange}ms remaining)`);
+      setTimeout(() => {
+        if (!state.isPlaying) {
+          changeToNewRandomIdle();
+        }
+      }, cooldownMs - timeSinceLastChange);
+      return;
+    }
+
     if (!state.isPlaying) {
       changeToNewRandomIdle();
     } else {
@@ -156,10 +173,11 @@ export default function AnimationStateMachine({
 
     console.log(`🔄 New idle animation set: "${randomIdleAnimation}"`);
     currentIdleAnimationRef.current = randomIdleAnimation;
+    lastIdleChangeRef.current = Date.now(); // Update timestamp
     setState(newState);
     onStateChange(newState);
-    // Don't call onAnimationChange to avoid recursion - parent will handle based on state
-    // But we do want to trigger the actual animation playback for manual idle changes
+
+    // Trigger the animation playback
     if ((window as any).playAnimationByDescription) {
       (window as any).playAnimationByDescription(randomIdleAnimation);
     }

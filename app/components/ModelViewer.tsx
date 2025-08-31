@@ -34,6 +34,7 @@ function AvatarAnimator({
   const [currentAnimationIndex, setCurrentAnimationIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const currentIdleListenerRef = useRef<(() => void) | null>(null);
 
   // Notify parent of error and loading state changes
   useEffect(() => {
@@ -51,9 +52,15 @@ function AvatarAnimator({
     console.log(`🎬 playAnimation called with index: ${index}, animation: ${animations[index]?.name || "undefined"}`);
     console.log(`🎬 Previous animation index: ${currentAnimationIndex}`);
 
-    // Stop current animation
+    // Stop current animation and remove any existing finished listeners
     if (currentActionRef.current) {
       currentActionRef.current.stop();
+    }
+
+    // Remove the previous idle listener if it exists
+    if (currentIdleListenerRef.current && mixerRef.current) {
+      mixerRef.current.removeEventListener("finished", currentIdleListenerRef.current);
+      currentIdleListenerRef.current = null;
     }
 
     // Check if this is an idle animation
@@ -70,14 +77,23 @@ function AvatarAnimator({
       // Set up completion listener for idle animations
       const onIdleComplete = () => {
         console.log(`🔄 Idle animation "${animations[index].name}" completed at index ${index}`);
-        // Call the global onIdleAnimationComplete function for cycling
-        if ((window as any).onIdleAnimationComplete) {
-          (window as any).onIdleAnimationComplete();
-        }
-        // Remove the listener
-        mixerRef.current?.removeEventListener("finished", onIdleComplete);
+        // Clear the listener reference
+        currentIdleListenerRef.current = null;
+
+        // Add minimum idle duration to prevent too-rapid cycling
+        const minIdleDuration = 3000; // 3 seconds minimum
+        const animationDuration = animations[index].duration * 1000; // Convert to milliseconds
+        const delay = Math.max(500, minIdleDuration - animationDuration);
+
+        setTimeout(() => {
+          if ((window as any).onIdleAnimationComplete) {
+            (window as any).onIdleAnimationComplete();
+          }
+        }, delay);
       };
 
+      // Store the listener reference for cleanup
+      currentIdleListenerRef.current = onIdleComplete;
       mixerRef.current.addEventListener("finished", onIdleComplete);
     } else {
       // For non-idle animations, loop infinitely
@@ -303,6 +319,10 @@ function AvatarAnimator({
     return () => {
       if (mixerRef.current) {
         mixerRef.current.stopAllAction();
+        // Remove idle listener if it exists
+        if (currentIdleListenerRef.current) {
+          mixerRef.current.removeEventListener("finished", currentIdleListenerRef.current);
+        }
       }
     };
   }, []);
