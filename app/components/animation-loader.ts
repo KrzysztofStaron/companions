@@ -99,26 +99,6 @@ export const ANIMATION_FILES: AnimationFile[] = [
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_018.glb",
     description: "I'm gonna kill you",
   },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Talking_Variations_006.glb",
-    description: "Gesticulating 6",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Talking_Variations_007.glb",
-    description: "Gesticulating 7",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Talking_Variations_008.glb",
-    description: "Gesticulating 8",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Talking_Variations_009.glb",
-    description: "Gesticulating 9",
-  },
-  {
-    path: "/animation-library/masculine/glb/expression/M_Talking_Variations_010.glb",
-    description: "Gesticulating 10",
-  },
 
   // Masculine Idle Animations
   {
@@ -126,32 +106,12 @@ export const ANIMATION_FILES: AnimationFile[] = [
     description: "Standing idle with subtle breathing and slight movements",
   },
   {
-    path: "/animation-library/masculine/glb/idle/F_Standing_Idle_Variations_001.glb",
-    description: "Idle with gentle weight shifting and relaxed posture",
-  },
-  {
-    path: "/animation-library/masculine/glb/idle/F_Standing_Idle_Variations_002.glb",
-    description: "Idle with soft movements and natural breathing",
-  },
-  {
     path: "/animation-library/masculine/glb/idle/F_Standing_Idle_Variations_003.glb",
     description: "Idle with graceful stance and elegant presence",
   },
   {
-    path: "/animation-library/masculine/glb/idle/F_Standing_Idle_Variations_004.glb",
-    description: "Idle with relaxed energy and comfortable stance",
-  },
-  {
-    path: "/animation-library/masculine/glb/idle/F_Standing_Idle_Variations_005.glb",
-    description: "Idle with natural movements and organic presence",
-  },
-  {
     path: "/animation-library/masculine/glb/idle/F_Standing_Idle_Variations_006.glb",
     description: "Idle with subtle gestures and gentle expression",
-  },
-  {
-    path: "/animation-library/masculine/glb/idle/F_Standing_Idle_Variations_007.glb",
-    description: "Idle with calm demeanor and steady presence",
   },
   {
     path: "/animation-library/masculine/glb/idle/F_Standing_Idle_Variations_008.glb",
@@ -166,44 +126,16 @@ export const ANIMATION_FILES: AnimationFile[] = [
     description: "Standing idle with confident posture and steady presence",
   },
   {
-    path: "/animation-library/masculine/glb/idle/M_Standing_Idle_002.glb",
-    description: "Idle with strong stance and composed demeanor",
-  },
-  {
-    path: "/animation-library/masculine/glb/idle/M_Standing_Idle_Variations_001.glb",
-    description: "Idle with relaxed confidence and natural stance",
-  },
-  {
     path: "/animation-library/masculine/glb/idle/M_Standing_Idle_Variations_002.glb",
     description: "Idle with steady breathing and subtle movements",
-  },
-  {
-    path: "/animation-library/masculine/glb/idle/M_Standing_Idle_Variations_003.glb",
-    description: "Idle with calm presence and relaxed energy",
-  },
-  {
-    path: "/animation-library/masculine/glb/idle/M_Standing_Idle_Variations_004.glb",
-    description: "Idle with natural stance and comfortable presence",
   },
   {
     path: "/animation-library/masculine/glb/idle/M_Standing_Idle_Variations_005.glb",
     description: "Idle with steady composure and subtle expression",
   },
   {
-    path: "/animation-library/masculine/glb/idle/M_Standing_Idle_Variations_006.glb",
-    description: "Idle with relaxed confidence and natural movements",
-  },
-  {
     path: "/animation-library/masculine/glb/idle/M_Standing_Idle_Variations_007.glb",
     description: "Idle with calm demeanor and steady presence",
-  },
-  {
-    path: "/animation-library/masculine/glb/idle/M_Standing_Idle_Variations_008.glb",
-    description: "Idle with natural stance and relaxed energy",
-  },
-  {
-    path: "/animation-library/masculine/glb/idle/M_Standing_Idle_Variations_009.glb",
-    description: "Idle with steady breathing and subtle movements",
   },
   {
     path: "/animation-library/masculine/glb/idle/M_Standing_Idle_Variations_010.glb",
