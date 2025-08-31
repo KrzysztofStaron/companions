@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { ANIMATION_FILES, ANIMATION_NAMES, getAvailableAnimationsForLLM } from "./animation-loader";
 import CharacterSwitcher from "./CharacterSwitcher";
+import ParallaxBackground from "./ParallaxBackground";
 
 // Character models with different shirt colors
 const CHARACTER_MODELS = {
@@ -362,7 +363,7 @@ function AvatarAnimator({
           ref={modelRef}
           object={characterScene}
           scale={[1, 1, 1]}
-          position={[0, -1, 0]}
+          position={[0, -1.3, 0]}
           rotation={[0, 0, 0]}
         />
       )}
@@ -373,9 +374,11 @@ function AvatarAnimator({
 export default function ModelViewer({
   showDebugUI = false,
   isListening = false,
+  backgroundUrl = null,
 }: {
   showDebugUI?: boolean;
   isListening?: boolean;
+  backgroundUrl?: string | null;
 }) {
   const [currentAnimationIndex, setCurrentAnimationIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -386,6 +389,7 @@ export default function ModelViewer({
   const [animationLoading, setAnimationLoading] = useState(true);
   const [isRotating, setIsRotating] = useState(false);
   const returnToCenterRef = useRef<number | null>(null);
+  const [cameraRotation, setCameraRotation] = useState({ azimuthal: 0, polar: 0 });
 
   const nextAnimation = () => {
     const nextIndex = (currentAnimationIndex + 1) % ANIMATION_NAMES.length;
@@ -489,6 +493,34 @@ export default function ModelViewer({
     setCurrentCharacter(character);
   };
 
+  // Camera rotation tracking for background movement
+  useEffect(() => {
+    const updateCameraRotation = () => {
+      if (orbitControlsRef.current) {
+        const controls = orbitControlsRef.current;
+        setCameraRotation({
+          azimuthal: controls.getAzimuthalAngle(),
+          polar: controls.getPolarAngle(),
+        });
+      }
+    };
+
+    // Update camera rotation on animation frame for smooth tracking
+    let animationId: number;
+    const animate = () => {
+      updateCameraRotation();
+      animationId = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
+  }, []);
+
   // Cleanup return to center animation on unmount
   useEffect(() => {
     return () => {
@@ -499,8 +531,15 @@ export default function ModelViewer({
   }, []);
 
   return (
-    <div className="w-full h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <Canvas camera={{ position: [0, 0, 4], fov: 75 }} style={{ background: "transparent" }}>
+    <div className="relative w-full h-screen">
+      {/* Parallax Background */}
+      <ParallaxBackground
+        azimuthal={cameraRotation.azimuthal}
+        polar={cameraRotation.polar}
+        backgroundUrl={backgroundUrl || undefined}
+      />
+
+      <Canvas camera={{ position: [0, 0.5, 2.3], fov: 75 }} style={{ background: "transparent" }}>
         {/* Lighting */}
         <ambientLight intensity={0.5} />
         <directionalLight position={[10, 10, 5]} intensity={1} />
@@ -517,16 +556,17 @@ export default function ModelViewer({
         {/* Controls */}
         <OrbitControls
           ref={orbitControlsRef}
-          enablePan={true}
+          enablePan={false}
           enableZoom={true}
           enableRotate={true}
           autoRotate={false}
           minDistance={1}
           maxDistance={5}
-          minAzimuthAngle={-Math.PI / 4} // -45 degrees
-          maxAzimuthAngle={Math.PI / 4} // +45 degrees
-          minPolarAngle={0} // Prevent looking down (0 = horizontal)
-          maxPolarAngle={Math.PI / 2} // Allow looking up (90 degrees up)
+          minAzimuthAngle={-Math.PI / 18} // -10 degrees horizontal rotation
+          maxAzimuthAngle={Math.PI / 18} // +10 degrees horizontal rotation
+          minPolarAngle={Math.PI / 2} // Lock vertical rotation at horizontal
+          maxPolarAngle={Math.PI / 2} // Lock vertical rotation at horizontal
+          rotateSpeed={0.3} // Reduced sensitivity (default is 1.0)
           onStart={handleRotationStart}
           onEnd={handleRotationEnd}
         />
@@ -534,9 +574,6 @@ export default function ModelViewer({
         {/* Environment for better reflections */}
         <Environment preset="city" />
       </Canvas>
-
-      {/* Background overlay to hide everything below the model */}
-      <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none"></div>
 
       {/* Voice Chat Indicator */}
       {isListening && (

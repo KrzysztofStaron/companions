@@ -141,16 +141,6 @@ export const ANIMATION_FILES: AnimationFile[] = [
     path: "/animation-library/masculine/glb/idle/M_Standing_Idle_Variations_010.glb",
     description: "Idle with confident presence and natural stance",
   },
-
-  // Masculine Locomotion Animations
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Crouch_Walk_001.glb",
-    description: "Crouched walking with low profile and careful movement",
-  },
-  {
-    path: "/animation-library/masculine/glb/locomotion/F_Jog_001.glb",
-    description: "Jogging with natural running motion and good form",
-  },
 ];
 
 // Generate descriptive names for all animations (for backward compatibility)

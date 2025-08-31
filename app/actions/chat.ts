@@ -1,6 +1,7 @@
 "use server";
 
 import OpenAI from "openai";
+import { startBackgroundGeneration, BackgroundRequest } from "./background";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -17,29 +18,72 @@ export interface AnimationRequest {
   say: string; // What the AI should say to the user
 }
 
+export async function generateTTS(text: string): Promise<string | null> {
+  try {
+    console.log(`🔊 Generating TTS for: "${text.substring(0, 50)}..."`);
+
+    const response = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: "onyx", // Male voice suitable for Jann
+      input: text,
+      speed: 1.0,
+    });
+
+    // Convert the response to a buffer and create a base64 data URL
+    const audioBuffer = await response.arrayBuffer();
+    const base64Audio = Buffer.from(audioBuffer).toString("base64");
+    const audioUrl = `data:audio/mpeg;base64,${base64Audio}`;
+
+    console.log(`✅ TTS generated successfully`);
+    return audioUrl;
+  } catch (error) {
+    console.error("❌ Error generating TTS:", error);
+    return null;
+  }
+}
+
 export async function chatWithAI(
   messages: ChatMessage[],
   availableAnimations: string[]
-): Promise<{ response: string; animationRequest?: AnimationRequest; audioUrl?: string }> {
+): Promise<{
+  response: string;
+  animationRequest?: AnimationRequest;
+  backgroundRequest?: BackgroundRequest;
+  audioUrl?: string;
+}> {
   try {
     // Create the system message with animation tools
     const systemMessage = {
       role: "system" as const,
       content: `
-You are a friendly AI companion that can control a 3D character's animations. You can now say something to the user AND request an animation at the same time!
+You are a friendly AI companion that can control a 3D character's animations AND change the background environment. You can say something to the user AND request an animation/background change at the same time!
 
 Available animations: ${availableAnimations.join(", ")}
 
-IMPORTANT: Use the request_animation tool to do BOTH:
-1. Say something to the user (use the "say" parameter)
-2. Make the character perform a relevant animation
+TOOLS AVAILABLE:
+1. request_animation - Make the character perform animations
+2. change_background - Generate and change the background scene
 
-When you want the character to perform an animation, use the request_animation tool with:
+ANIMATION TOOL: Use request_animation when you want the character to perform an animation:
 - "say": What you want to tell the user
 - "animationDescription": The animation to play (must match one from the available animations list)
 - "reason": Why you want to play this animation
 
-Choose animations that best fit the context and emotion you want to convey. Always return to idle after any animation.
+BACKGROUND TOOL: Use change_background when the user mentions wanting to go somewhere or see a different environment:
+- "say": What you want to tell the user while changing the background
+- "description": Describe the new background/environment to generate
+- "reason": Why you're changing the background
+
+IMPORTANT: Do NOT change backgrounds by default. Only change backgrounds when the user explicitly requests to go somewhere or see a different environment.
+
+Examples of when to change background:
+- "Let's go to a park" → change_background with description "a beautiful sunny park with trees and grass"
+- "I want to see the ocean" → change_background with description "a peaceful ocean view with waves and blue sky"
+- "Take me to a forest" → change_background with description "a mystical forest with tall trees and dappled sunlight"
+
+Do NOT change backgrounds for general conversation, greetings, or casual interactions.
+
+Choose animations and backgrounds that best fit the context and emotion you want to convey.
 
 Persona:
 Jann is a young male who grew up in a big European city. He's been described as a bit strange and not easy to understand. He's a public figure, but he usually likes to be alone. Jann is sincere and friendly, but he's also quite mysterious and sometimes difficult to get to know. He has short black hair and dark eyes. He's in his early 20s.
@@ -80,55 +124,83 @@ He reads a lot of books, and knows a lot of interesting real life people. He lik
             },
           },
         },
+        {
+          type: "function",
+          function: {
+            name: "change_background",
+            description: "Generate and change the background environment",
+            parameters: {
+              type: "object",
+              properties: {
+                say: {
+                  type: "string",
+                  description: "What you want to say to the user while changing the background",
+                },
+                description: {
+                  type: "string",
+                  description:
+                    "Describe the new background/environment to generate (e.g., 'a beautiful sunny park', 'a peaceful ocean view')",
+                },
+                reason: {
+                  type: "string",
+                  description: "Why you're changing the background",
+                },
+              },
+              required: ["say", "description", "reason"],
+            },
+          },
+        },
       ],
       tool_choice: "auto",
     });
 
     const message = response.choices[0].message;
     let animationRequest: AnimationRequest | undefined;
+    let backgroundRequest: BackgroundRequest | undefined;
 
-    // Check if the AI wants to play an animation
+    // Check if the AI wants to use tools
     if (message.tool_calls && message.tool_calls.length > 0) {
-      const toolCall = message.tool_calls[0];
-      if (toolCall.type === "function" && toolCall.function.name === "request_animation") {
-        try {
-          const args = JSON.parse(toolCall.function.arguments);
-          animationRequest = {
-            say: args.say,
-            animationDescription: args.animationDescription,
-            reason: args.reason,
-          };
-        } catch (error) {
-          console.error("Error parsing animation request:", error);
+      for (const toolCall of message.tool_calls) {
+        if (toolCall.type === "function") {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+
+            if (toolCall.function.name === "request_animation") {
+              animationRequest = {
+                say: args.say,
+                animationDescription: args.animationDescription,
+                reason: args.reason,
+              };
+            } else if (toolCall.function.name === "change_background") {
+              // Start background generation asynchronously (non-blocking)
+              await startBackgroundGeneration(args.description);
+              backgroundRequest = {
+                description: args.description,
+                reason: args.reason,
+                say: args.say,
+              };
+              console.log(`🎨 Background generation started: ${args.description}`);
+            }
+          } catch (error) {
+            console.error(`Error parsing ${toolCall.function.name} request:`, error);
+          }
         }
       }
     }
 
-    // Generate TTS audio for the response
-    let audioUrl: string | undefined;
-    const textToSpeak = message.content || animationRequest?.say || "";
+    // Generate TTS for the AI response
+    let audioUrl: string | null = null;
+    const textToSpeak = animationRequest?.say || backgroundRequest?.say || message.content || "";
 
-    if (textToSpeak) {
-      try {
-        const audioResponse = await openai.audio.speech.create({
-          model: "tts-1",
-          voice: "echo",
-          input: textToSpeak,
-        });
-
-        // Convert the audio to base64 for embedding
-        const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-        const base64Audio = audioBuffer.toString("base64");
-        audioUrl = `data:audio/mp3;base64,${base64Audio}`;
-      } catch (error) {
-        console.error("Error generating TTS:", error);
-      }
+    if (textToSpeak.trim()) {
+      audioUrl = await generateTTS(textToSpeak);
     }
 
     return {
       response: message.content || "",
       animationRequest,
-      audioUrl,
+      backgroundRequest,
+      audioUrl: audioUrl || undefined,
     };
   } catch (error: unknown) {
     console.error("Error in AI chat:", error);

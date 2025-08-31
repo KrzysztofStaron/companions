@@ -133,7 +133,9 @@ export default function VoiceChat({
         onAnimationRequest(aiResponse.animationRequest);
       }
 
+      // Play TTS audio if available
       if (aiResponse.audioUrl) {
+        console.log("🔊 Playing TTS audio");
         const audio = new Audio(aiResponse.audioUrl);
         setAudioElement(audio);
       }

@@ -2,6 +2,23 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Environment Variables
+
+Create a `.env.local` file in the root directory with the following variables:
+
+```bash
+# OpenAI API Key for TTS and chat functionality
+OPENAI_API_KEY=your_openai_api_key_here
+
+# OpenRouter API Key for image generation with Gemini
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+
+# Site URL for OpenRouter HTTP-Referer header (optional)
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+### Running the Development Server
+
 First, run the development server:
 
 ```bash
