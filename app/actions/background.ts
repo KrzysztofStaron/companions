@@ -103,67 +103,53 @@ function extractImageFromGeminiResponse(result: any): string | null {
   }
 }
 
-// Store the current background URL and generation status in memory (in production, you'd use a database)
-let currentBackgroundUrl: string | null = null;
-let isGeneratingBackground: boolean = false;
-let currentGenerationDescription: string | null = null;
+// Background state is now 100% client-side - no server state needed
+// Client-side state functions moved to app/lib/background-state.ts
 
-export async function setCurrentBackground(url: string | null): Promise<void> {
-  currentBackgroundUrl = url;
-}
+// Import client-side state functions
+import { getBackgroundStateSync, setBackgroundStateSync } from "../lib/background-state";
 
-export async function getCurrentBackground(): Promise<string | null> {
-  return currentBackgroundUrl;
-}
-
-export async function getBackgroundGenerationStatus(): Promise<{
-  isGenerating: boolean;
-  description: string | null;
-}> {
-  return {
-    isGenerating: isGeneratingBackground,
-    description: currentGenerationDescription,
-  };
-}
-
-export async function getBackgroundState(): Promise<{
-  backgroundUrl: string | null;
-  isGenerating: boolean;
-  description: string | null;
-}> {
-  return {
-    backgroundUrl: currentBackgroundUrl,
-    isGenerating: isGeneratingBackground,
-    description: currentGenerationDescription,
-  };
-}
-
+// Client-side background generation starter
 export async function startBackgroundGeneration(description: string): Promise<void> {
-  if (isGeneratingBackground) {
+  const currentState = getBackgroundStateSync();
+
+  if (currentState.isGenerating) {
     console.log(`🎨 Background generation already in progress, skipping new request`);
     return;
   }
 
-  isGeneratingBackground = true;
-  currentGenerationDescription = description;
+  // Update client-side state to show generation started
+  setBackgroundStateSync({
+    isGenerating: true,
+    description: description,
+  });
 
-  console.log(`🎨 Starting background generation in background: ${description}`);
+  console.log(`🎨 Starting background generation: ${description}`);
 
-  // Generate background asynchronously without blocking
-  generateBackground(description)
-    .then(backgroundUrl => {
-      if (backgroundUrl) {
-        console.log(`✅ Background generation completed: ${description}`);
-        setCurrentBackground(backgroundUrl);
-      } else {
-        console.error(`❌ Background generation failed: ${description}`);
-      }
-    })
-    .catch(error => {
-      console.error(`❌ Background generation error:`, error);
-    })
-    .finally(() => {
-      isGeneratingBackground = false;
-      currentGenerationDescription = null;
+  try {
+    // Call server function to generate the background
+    const backgroundUrl = await generateBackground(description);
+
+    if (backgroundUrl) {
+      console.log(`✅ Background generation completed: ${description}`);
+      // Update client-side state with new background
+      setBackgroundStateSync({
+        backgroundUrl: backgroundUrl,
+        isGenerating: false,
+        description: null,
+      });
+    } else {
+      console.error(`❌ Background generation failed: ${description}`);
+      setBackgroundStateSync({
+        isGenerating: false,
+        description: null,
+      });
+    }
+  } catch (error) {
+    console.error(`❌ Background generation error:`, error);
+    setBackgroundStateSync({
+      isGenerating: false,
+      description: null,
     });
+  }
 }

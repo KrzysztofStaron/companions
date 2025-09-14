@@ -6,7 +6,8 @@ import AnimationStateMachine from "./components/AnimationStateMachine";
 import VoiceChat from "./components/VoiceChat";
 import { useState, useEffect } from "react";
 import { chatWithAI, ChatMessage, AnimationRequest } from "./actions/chat";
-import { getBackgroundState, BackgroundRequest } from "./actions/background";
+import { getBackgroundStateSync } from "./lib/background-state";
+import { BackgroundRequest } from "./actions/background";
 import { getAvailableAnimationsForLLM } from "./components/animation-loader";
 
 export default function Home() {
@@ -33,11 +34,11 @@ export default function Home() {
     setAvailableAnimations(getAvailableAnimationsForLLM());
   }, []);
 
-  // Check for background updates and generation status periodically
+  // Check for background updates using client-side state (no server actions = no POST requests)
   useEffect(() => {
-    const checkBackgroundUpdates = async () => {
+    const checkBackgroundUpdates = () => {
       try {
-        const backgroundState = await getBackgroundState();
+        const backgroundState = getBackgroundStateSync();
 
         setCurrentBackgroundUrl(prev => {
           if (backgroundState.backgroundUrl !== prev) {
@@ -64,12 +65,12 @@ export default function Home() {
       }
     };
 
-    // Check immediately and then every 5 seconds (reduced frequency)
+    // Check immediately and then every 2 seconds (faster since no network overhead)
     checkBackgroundUpdates();
-    const interval = setInterval(checkBackgroundUpdates, 5000);
+    const interval = setInterval(checkBackgroundUpdates, 2000);
 
     return () => clearInterval(interval);
-  }, []); // Removed dependency array to prevent multiple intervals
+  }, []); // No dependencies needed since we're using client-side state
 
   // Handler for animation state changes
   const handleAnimationStateChange = (state: any) => {
