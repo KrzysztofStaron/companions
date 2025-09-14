@@ -539,7 +539,7 @@ export default function ModelViewer({
         backgroundUrl={backgroundUrl || undefined}
       />
 
-      <Canvas camera={{ position: [0, 1.8, 2.3], fov: 75 }} style={{ background: "transparent" }}>
+      <Canvas camera={{ position: [0, 4, 0], fov: 75 }} style={{ background: "transparent" }}>
         {/* Global Lighting Setup */}
         {/* Main ambient light for overall illumination */}
         <ambientLight intensity={0.2} color="#ffffff" />
@@ -559,14 +559,8 @@ export default function ModelViewer({
           shadow-camera-bottom={-10}
         />
 
-        {/* Fill light - softer light from the right to reduce harsh shadows */}
-        <directionalLight position={[-3, 3, 2]} intensity={0.3} color="#e6f3ff" />
-
         {/* Front face light - direct illumination for the face */}
         <directionalLight position={[0, 1, 4]} intensity={0.3} color="#ffffff" />
-
-        {/* Ground reflection light */}
-        <pointLight position={[0, -1, 1]} intensity={0.15} color="#ffffff" distance={8} decay={2} />
 
         {/* Avatar with Animator */}
         <AvatarAnimator
