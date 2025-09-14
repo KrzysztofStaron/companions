@@ -126,6 +126,18 @@ export async function getBackgroundGenerationStatus(): Promise<{
   };
 }
 
+export async function getBackgroundState(): Promise<{
+  backgroundUrl: string | null;
+  isGenerating: boolean;
+  description: string | null;
+}> {
+  return {
+    backgroundUrl: currentBackgroundUrl,
+    isGenerating: isGeneratingBackground,
+    description: currentGenerationDescription,
+  };
+}
+
 export async function startBackgroundGeneration(description: string): Promise<void> {
   if (isGeneratingBackground) {
     console.log(`🎨 Background generation already in progress, skipping new request`);

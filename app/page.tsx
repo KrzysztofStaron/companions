@@ -6,7 +6,7 @@ import AnimationStateMachine from "./components/AnimationStateMachine";
 import VoiceChat from "./components/VoiceChat";
 import { useState, useEffect } from "react";
 import { chatWithAI, ChatMessage, AnimationRequest } from "./actions/chat";
-import { getCurrentBackground, getBackgroundGenerationStatus, BackgroundRequest } from "./actions/background";
+import { getBackgroundState, BackgroundRequest } from "./actions/background";
 import { getAvailableAnimationsForLLM } from "./components/animation-loader";
 
 export default function Home() {
@@ -37,33 +37,39 @@ export default function Home() {
   useEffect(() => {
     const checkBackgroundUpdates = async () => {
       try {
-        const [backgroundUrl, generationStatus] = await Promise.all([
-          getCurrentBackground(),
-          getBackgroundGenerationStatus(),
-        ]);
+        const backgroundState = await getBackgroundState();
 
-        if (backgroundUrl !== currentBackgroundUrl) {
-          setCurrentBackgroundUrl(backgroundUrl);
-        }
+        setCurrentBackgroundUrl(prev => {
+          if (backgroundState.backgroundUrl !== prev) {
+            return backgroundState.backgroundUrl;
+          }
+          return prev;
+        });
 
-        if (generationStatus.isGenerating !== isGeneratingBackground) {
-          setIsGeneratingBackground(generationStatus.isGenerating);
-        }
+        setIsGeneratingBackground(prev => {
+          if (backgroundState.isGenerating !== prev) {
+            return backgroundState.isGenerating;
+          }
+          return prev;
+        });
 
-        if (generationStatus.description !== backgroundGenerationDescription) {
-          setBackgroundGenerationDescription(generationStatus.description);
-        }
+        setBackgroundGenerationDescription(prev => {
+          if (backgroundState.description !== prev) {
+            return backgroundState.description;
+          }
+          return prev;
+        });
       } catch (error) {
         console.error("Error checking background updates:", error);
       }
     };
 
-    // Check immediately and then every 2 seconds
+    // Check immediately and then every 5 seconds (reduced frequency)
     checkBackgroundUpdates();
-    const interval = setInterval(checkBackgroundUpdates, 2000);
+    const interval = setInterval(checkBackgroundUpdates, 5000);
 
     return () => clearInterval(interval);
-  }, [currentBackgroundUrl, isGeneratingBackground, backgroundGenerationDescription]);
+  }, []); // Removed dependency array to prevent multiple intervals
 
   // Handler for animation state changes
   const handleAnimationStateChange = (state: any) => {

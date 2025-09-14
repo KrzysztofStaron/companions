@@ -36,10 +36,6 @@ export const ANIMATION_FILES: AnimationFile[] = [
     description: "Nervous talking",
   },
   {
-    path: "/animation-library/masculine/glb/expression/F_Talking_Variations_002.glb",
-    description: "Talking",
-  },
-  {
     path: "/animation-library/masculine/glb/expression/F_Talking_Variations_003.glb",
     description: "Pretentious talking",
   },
