@@ -2,6 +2,7 @@
 
 import OpenAI from "openai";
 import { startBackgroundGeneration, BackgroundRequest } from "./background";
+import { generateFishAudioTTS } from "./fish-audio";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -22,22 +23,47 @@ export async function generateTTS(text: string): Promise<string | null> {
   try {
     console.log(`🔊 Generating TTS for: "${text.substring(0, 50)}..."`);
 
-    const response = await openai.audio.speech.create({
-      model: "tts-1",
-      voice: "onyx", // Male voice suitable for Jann
-      input: text,
-      speed: 1.0,
-    });
+    // Use Fish Audio TTS instead of OpenAI
+    const audioUrl = await generateFishAudioTTS(text);
 
-    // Convert the response to a buffer and create a base64 data URL
-    const audioBuffer = await response.arrayBuffer();
-    const base64Audio = Buffer.from(audioBuffer).toString("base64");
-    const audioUrl = `data:audio/mpeg;base64,${base64Audio}`;
+    if (audioUrl) {
+      console.log(`✅ Fish Audio TTS generated successfully`);
+      return audioUrl;
+    } else {
+      console.log(`⚠️ Fish Audio TTS failed, falling back to OpenAI TTS`);
+      console.log(`   Fish Audio issues are typically due to:`);
+      console.log(`   - API key/billing problems (402 error)`);
+      console.log(`   - Network connectivity issues`);
+      console.log(`   - Service temporarily unavailable`);
 
-    console.log(`✅ TTS generated successfully`);
-    return audioUrl;
+      // Fallback to OpenAI TTS if Fish Audio fails
+      const response = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: "onyx", // Male voice suitable for Jann
+        input: text,
+        speed: 1.0,
+      });
+
+      // Convert the response to a buffer and create a base64 data URL
+      const audioBuffer = await response.arrayBuffer();
+      const base64Audio = Buffer.from(audioBuffer).toString("base64");
+      const fallbackAudioUrl = `data:audio/mpeg;base64,${base64Audio}`;
+
+      console.log(`✅ OpenAI TTS fallback generated successfully`);
+      return fallbackAudioUrl;
+    }
   } catch (error) {
     console.error("❌ Error generating TTS:", error);
+    if (error instanceof Error) {
+      console.error("   Error details:", error.message);
+      if (error.message.includes("401")) {
+        console.error("   This appears to be an authentication error - check your API keys");
+      } else if (error.message.includes("429")) {
+        console.error("   This appears to be a rate limit error - too many requests");
+      } else if (error.message.includes("500")) {
+        console.error("   This appears to be a server error - service temporarily unavailable");
+      }
+    }
     return null;
   }
 }

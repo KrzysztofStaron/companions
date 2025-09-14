@@ -7,8 +7,12 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 Create a `.env.local` file in the root directory with the following variables:
 
 ```bash
-# OpenAI API Key for TTS and chat functionality
+# OpenAI API Key for chat functionality and TTS fallback
 OPENAI_API_KEY=your_openai_api_key_here
+
+# Fish Audio Configuration for TTS (primary)
+FISH_API_KEY=your_fish_audio_api_key_here
+MODEL_ID=your_fish_audio_model_id_here
 
 # OpenRouter API Key for image generation with Gemini
 OPENROUTER_API_KEY=your_openrouter_api_key_here
@@ -16,6 +20,15 @@ OPENROUTER_API_KEY=your_openrouter_api_key_here
 # Site URL for OpenRouter HTTP-Referer header (optional)
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
+
+#### Fish Audio Setup
+
+1. Get your API key from [Fish Audio](https://fish.audio/)
+2. Upload a reference audio file or choose a model from the playground
+3. Get the model ID from the Fish Audio dashboard
+4. Add both `FISH_API_KEY` and `MODEL_ID` to your `.env.local` file
+
+The app will use Fish Audio for TTS by default and fall back to OpenAI TTS if Fish Audio fails.
 
 ### Running the Development Server
 
