@@ -7,19 +7,23 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 Create a `.env.local` file in the root directory with the following variables:
 
 ```bash
-# OpenAI API Key for chat functionality and TTS fallback
-OPENAI_API_KEY=your_openai_api_key_here
+# OpenRouter API Key for chat functionality (using gpt-4.1-nano-2025-04-14)
+OPENROUTER_API_KEY=your_openrouter_api_key_here
 
-# Fish Audio Configuration for TTS (primary)
+# Fish Audio Configuration for TTS (primary and only TTS provider)
 FISH_API_KEY=your_fish_audio_api_key_here
 MODEL_ID=your_fish_audio_model_id_here
-
-# OpenRouter API Key for image generation with Gemini
-OPENROUTER_API_KEY=your_openrouter_api_key_here
 
 # Site URL for OpenRouter HTTP-Referer header (optional)
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
+
+#### OpenRouter Setup
+
+1. Get your API key from [OpenRouter](https://openrouter.ai/)
+2. Add credits to your OpenRouter account
+3. Add `OPENROUTER_API_KEY` to your `.env.local` file
+4. The app uses the `gpt-4.1-nano-2025-04-14` model for cost-effective conversations
 
 #### Fish Audio Setup
 
@@ -28,7 +32,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 3. Get the model ID from the Fish Audio dashboard
 4. Add both `FISH_API_KEY` and `MODEL_ID` to your `.env.local` file
 
-The app will use Fish Audio for TTS by default and fall back to OpenAI TTS if Fish Audio fails.
+The app uses Fish Audio as the primary and only TTS provider. Chat functionality is powered by OpenRouter using the gpt-4.1-nano-2025-04-14 model for cost-effective conversations.
 
 ### Running the Development Server
 

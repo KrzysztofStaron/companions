@@ -539,11 +539,34 @@ export default function ModelViewer({
         backgroundUrl={backgroundUrl || undefined}
       />
 
-      <Canvas camera={{ position: [0, 0.5, 2.3], fov: 75 }} style={{ background: "transparent" }}>
-        {/* Lighting */}
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        <pointLight position={[-10, -10, -5]} intensity={0.5} />
+      <Canvas camera={{ position: [0, 1.8, 2.3], fov: 75 }} style={{ background: "transparent" }}>
+        {/* Global Lighting Setup */}
+        {/* Main ambient light for overall illumination */}
+        <ambientLight intensity={0.2} color="#ffffff" />
+
+        {/* Key light - main directional light from top-left */}
+        <directionalLight
+          position={[5, 4, 3]}
+          intensity={0.8}
+          color="#ffffff"
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-camera-far={20}
+          shadow-camera-left={-10}
+          shadow-camera-right={10}
+          shadow-camera-top={10}
+          shadow-camera-bottom={-10}
+        />
+
+        {/* Fill light - softer light from the right to reduce harsh shadows */}
+        <directionalLight position={[-3, 3, 2]} intensity={0.3} color="#e6f3ff" />
+
+        {/* Front face light - direct illumination for the face */}
+        <directionalLight position={[0, 1, 4]} intensity={0.3} color="#ffffff" />
+
+        {/* Ground reflection light */}
+        <pointLight position={[0, -1, 1]} intensity={0.15} color="#ffffff" distance={8} decay={2} />
 
         {/* Avatar with Animator */}
         <AvatarAnimator
@@ -560,8 +583,8 @@ export default function ModelViewer({
           enableZoom={true}
           enableRotate={true}
           autoRotate={false}
-          minDistance={1}
-          maxDistance={5}
+          minDistance={1.5}
+          maxDistance={3.5}
           minAzimuthAngle={-Math.PI / 18} // -10 degrees horizontal rotation
           maxAzimuthAngle={Math.PI / 18} // +10 degrees horizontal rotation
           minPolarAngle={Math.PI / 2} // Lock vertical rotation at horizontal
