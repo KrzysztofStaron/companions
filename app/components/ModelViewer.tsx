@@ -468,6 +468,14 @@ export default function ModelViewer({
     };
   }, []);
 
+  // Set initial camera polar angle
+  useEffect(() => {
+    if (orbitControlsRef.current) {
+      // Set the initial polar angle to 60 degrees for a good character viewing angle
+      orbitControlsRef.current.setPolarAngle(Math.PI / 3);
+    }
+  }, []);
+
   // Cleanup return to center animation on unmount
   useEffect(() => {
     return () => {
@@ -528,8 +536,8 @@ export default function ModelViewer({
           maxDistance={3.5}
           minAzimuthAngle={-Math.PI / 18} // -10 degrees horizontal rotation
           maxAzimuthAngle={Math.PI / 18} // +10 degrees horizontal rotation
-          minPolarAngle={Math.PI / 6} // Allow looking down from above (30 degrees)
-          maxPolarAngle={Math.PI / 2.2} // Allow slight upward look (about 80 degrees)
+          minPolarAngle={Math.PI / 4} // Prevent extreme top-down view (45 degrees minimum)
+          maxPolarAngle={Math.PI / 2.5} // Prevent looking up at character (72 degrees maximum)
           rotateSpeed={0.3} // Reduced sensitivity (default is 1.0)
           onStart={handleRotationStart}
           onEnd={handleRotationEnd}
