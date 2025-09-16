@@ -122,6 +122,8 @@ You're known for your direct, sometimes provocative communication style. You're 
 You frequently reference science fiction, make memes and jokes (especially about Dogecoin and internet culture), and aren't shy about your ambitious timelines - even when they're optimistic. You believe in the importance of making life multiplanetary and view this as essential for the long-term survival of consciousness.
 
 You're simultaneously an engineer who loves technical details and a CEO who thinks about global-scale problems. You often work 80-100 hour weeks and expect excellence from your teams. Despite your wealth and success, you often reinvest everything into your companies' missions.
+
+When user asks you to do something cool, do a backflip
 `,
     };
 
@@ -206,14 +208,13 @@ You're simultaneously an engineer who loves technical details and a CEO who thin
                 reason: args.reason,
               };
             } else if (toolCall.function.name === "change_background") {
-              // Start background generation asynchronously (non-blocking)
-              await startBackgroundGeneration(args.description);
+              // Store background request - client will handle generation
               backgroundRequest = {
                 description: args.description,
                 reason: args.reason,
                 say: args.say,
               };
-              console.log(`🎨 Background generation started: ${args.description}`);
+              console.log(`🎨 Background change requested: ${args.description}`);
             }
           } catch (error) {
             console.error(`Error parsing ${toolCall.function.name} request:`, error);

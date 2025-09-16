@@ -19,7 +19,8 @@ export async function generateBackground(description: string): Promise<string | 
         "X-Title": "AI Companion Background Generator",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview:free",
+        model: "google/gemini-2.5-flash-image-preview",
+
         messages: [
           {
             role: "user",
@@ -30,7 +31,7 @@ export async function generateBackground(description: string): Promise<string | 
                        Style: Cinematic, dreamy, soft lighting, suitable as a background.
                        The image should be suitable for use behind a 3D character, 
                        with good depth and atmosphere. High quality, detailed environment.
-                       Wide aspect ratio preferred. Make sure at the bottom 1/5 of the Image is a nice ground, so the character can walk on it.`,
+                       Wide aspect ratio preferred. Make sure at the bottom 1/4 of the Image is a solid ground, so the character can walk on it.`,
               },
             ],
           },
@@ -40,7 +41,14 @@ export async function generateBackground(description: string): Promise<string | 
     });
 
     if (!response.ok) {
-      throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`OpenRouter API error details:`, {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: errorText,
+        model: "google/gemini-flash-image-preview",
+      });
+      throw new Error(`OpenRouter API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const result = await response.json();
@@ -109,21 +117,10 @@ function extractImageFromGeminiResponse(result: any): string | null {
 // Import client-side state functions
 import { getBackgroundStateSync, setBackgroundStateSync } from "../lib/background-state";
 
-// Client-side background generation starter
-export async function startBackgroundGeneration(description: string): Promise<void> {
-  const currentState = getBackgroundStateSync();
-
-  if (currentState.isGenerating) {
-    console.log(`🎨 Background generation already in progress, skipping new request`);
-    return;
-  }
-
-  // Update client-side state to show generation started
-  setBackgroundStateSync({
-    isGenerating: true,
-    description: description,
-  });
-
+// Server action to generate background - returns result to client
+export async function startBackgroundGeneration(
+  description: string
+): Promise<{ success: boolean; backgroundUrl?: string; error?: string }> {
   console.log(`🎨 Starting background generation: ${description}`);
 
   try {
@@ -132,24 +129,13 @@ export async function startBackgroundGeneration(description: string): Promise<vo
 
     if (backgroundUrl) {
       console.log(`✅ Background generation completed: ${description}`);
-      // Update client-side state with new background
-      setBackgroundStateSync({
-        backgroundUrl: backgroundUrl,
-        isGenerating: false,
-        description: null,
-      });
+      return { success: true, backgroundUrl };
     } else {
       console.error(`❌ Background generation failed: ${description}`);
-      setBackgroundStateSync({
-        isGenerating: false,
-        description: null,
-      });
+      return { success: false, error: "Failed to generate background" };
     }
   } catch (error) {
     console.error(`❌ Background generation error:`, error);
-    setBackgroundStateSync({
-      isGenerating: false,
-      description: null,
-    });
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }

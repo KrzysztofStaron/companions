@@ -18,6 +18,15 @@ export default function ParallaxBackground({ azimuthal = 0, polar = 0, backgroun
     setMounted(true);
   }, []);
 
+  // Debug logging for background changes
+  useEffect(() => {
+    if (backgroundUrl) {
+      console.log("🖼️ ParallaxBackground: New background URL received:", backgroundUrl.substring(0, 100) + "...");
+    } else {
+      console.log("🖼️ ParallaxBackground: No background URL, showing gradient");
+    }
+  }, [backgroundUrl]);
+
   if (!mounted) return null;
 
   // Calculate parallax offset based on camera rotation

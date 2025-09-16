@@ -6,8 +6,7 @@ import AnimationStateMachine from "./components/AnimationStateMachine";
 import VoiceChat from "./components/VoiceChat";
 import { useState, useEffect } from "react";
 import { chatWithAI, ChatMessage, AnimationRequest } from "./actions/chat";
-import { getBackgroundStateSync } from "./lib/background-state";
-import { BackgroundRequest } from "./actions/background";
+import { BackgroundRequest, startBackgroundGeneration } from "./actions/background";
 import { getAvailableAnimationsForLLM } from "./components/animation-loader";
 import { useAudioPermission } from "./components/AudioPermissionManager";
 
@@ -36,43 +35,7 @@ export default function Home() {
     setAvailableAnimations(getAvailableAnimationsForLLM());
   }, []);
 
-  // Check for background updates using client-side state (no server actions = no POST requests)
-  useEffect(() => {
-    const checkBackgroundUpdates = () => {
-      try {
-        const backgroundState = getBackgroundStateSync();
-
-        setCurrentBackgroundUrl(prev => {
-          if (backgroundState.backgroundUrl !== prev) {
-            return backgroundState.backgroundUrl;
-          }
-          return prev;
-        });
-
-        setIsGeneratingBackground(prev => {
-          if (backgroundState.isGenerating !== prev) {
-            return backgroundState.isGenerating;
-          }
-          return prev;
-        });
-
-        setBackgroundGenerationDescription(prev => {
-          if (backgroundState.description !== prev) {
-            return backgroundState.description;
-          }
-          return prev;
-        });
-      } catch (error) {
-        console.error("Error checking background updates:", error);
-      }
-    };
-
-    // Check immediately and then every 2 seconds (faster since no network overhead)
-    checkBackgroundUpdates();
-    const interval = setInterval(checkBackgroundUpdates, 2000);
-
-    return () => clearInterval(interval);
-  }, []); // No dependencies needed since we're using client-side state
+  // No longer using the global background state polling - managing state locally for better control
 
   // Handler for animation state changes
   const handleAnimationStateChange = (state: any) => {
@@ -208,7 +171,31 @@ export default function Home() {
         if (aiResponse.backgroundRequest) {
           console.log("🎨 AI requested background change:", aiResponse.backgroundRequest);
           console.log("💬 AI says:", aiResponse.backgroundRequest.say);
-          // Background generation started asynchronously, URL will be updated by periodic check
+
+          // Update client-side state to show generation started
+          console.log("🎨 Setting generation popup to visible");
+          setIsGeneratingBackground(true);
+          setBackgroundGenerationDescription(aiResponse.backgroundRequest.description);
+
+          // Start background generation asynchronously
+          startBackgroundGeneration(aiResponse.backgroundRequest.description)
+            .then(result => {
+              if (result.success && result.backgroundUrl) {
+                console.log(`✅ Background generated successfully`);
+                setCurrentBackgroundUrl(result.backgroundUrl);
+              } else {
+                console.error(`❌ Background generation failed:`, result.error);
+              }
+              console.log("🎨 Hiding generation popup - generation completed");
+              setIsGeneratingBackground(false);
+              setBackgroundGenerationDescription(null);
+            })
+            .catch(error => {
+              console.error(`❌ Background generation error:`, error);
+              console.log("🎨 Hiding generation popup - generation failed");
+              setIsGeneratingBackground(false);
+              setBackgroundGenerationDescription(null);
+            });
         }
 
         // Handle animation request if present
