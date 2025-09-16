@@ -9,6 +9,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { ANIMATION_FILES, ANIMATION_NAMES, getAvailableAnimationsForLLM } from "./animation-loader";
 import CharacterSwitcher from "./CharacterSwitcher";
 import ParallaxBackground from "./ParallaxBackground";
+import { AnimationController } from "../lib/animation-controller";
 
 // Character models with different shirt colors
 const CHARACTER_MODELS = {
@@ -37,14 +38,13 @@ function AvatarAnimator({
     CHARACTER_MODELS[character as keyof typeof CHARACTER_MODELS] || CHARACTER_MODELS.character
   );
   const modelRef = useRef<THREE.Group>(null);
-  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
-  const currentActionRef = useRef<THREE.AnimationAction | null>(null);
+  const controllerRef = useRef<AnimationController | null>(null);
 
   const [animations, setAnimations] = useState<AnimationData[]>([]);
   const [currentAnimationIndex, setCurrentAnimationIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const currentIdleListenerRef = useRef<(() => void) | null>(null);
+  const idleCycleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Notify parent of error and loading state changes
   useEffect(() => {
@@ -57,64 +57,39 @@ function AvatarAnimator({
 
   // Function to play a specific animation
   const playAnimation = (index: number) => {
-    if (!mixerRef.current || index < 0 || index >= animations.length) return;
+    if (!controllerRef.current || index < 0 || index >= animations.length) return;
 
     console.log(`🎬 playAnimation called with index: ${index}, animation: ${animations[index]?.name || "undefined"}`);
-    console.log(`🎬 Previous animation index: ${currentAnimationIndex}`);
+    const animName = animations[index].name;
+    const isIdleAnimation = animName.toLowerCase().includes("idle");
 
-    // Stop current animation and remove any existing finished listeners
-    if (currentActionRef.current) {
-      currentActionRef.current.stop();
+    // Clear any scheduled idle cycle to avoid mid-crossfade changes
+    if (idleCycleTimerRef.current) {
+      clearTimeout(idleCycleTimerRef.current);
+      idleCycleTimerRef.current = null;
     }
-
-    // Remove the previous idle listener if it exists
-    if (currentIdleListenerRef.current && mixerRef.current) {
-      mixerRef.current.removeEventListener("finished", currentIdleListenerRef.current);
-      currentIdleListenerRef.current = null;
-    }
-
-    // Check if this is an idle animation
-    const isIdleAnimation = animations[index].name.toLowerCase().includes("idle");
-
-    // Play new animation
-    const newAction = mixerRef.current.clipAction(animations[index].clip);
 
     if (isIdleAnimation) {
-      // For idle animations, play once and set up completion callback
-      newAction.setLoop(THREE.LoopOnce, 1);
-      newAction.clampWhenFinished = true;
+      controllerRef.current.play(animName, THREE.LoopRepeat, Infinity);
 
-      // Set up completion listener for idle animations
-      const onIdleComplete = () => {
-        console.log(`🔄 Idle animation "${animations[index].name}" completed at index ${index}`);
-        // Clear the listener reference
-        currentIdleListenerRef.current = null;
-
-        // Add minimum idle duration to prevent too-rapid cycling
-        const minIdleDuration = 3000; // 3 seconds minimum
-        const animationDuration = animations[index].duration * 1000; // Convert to milliseconds
-        const delay = Math.max(500, minIdleDuration - animationDuration);
-
-        setTimeout(() => {
-          if ((window as any).onIdleAnimationComplete) {
-            (window as any).onIdleAnimationComplete();
-          }
-        }, delay);
-      };
-
-      // Store the listener reference for cleanup
-      currentIdleListenerRef.current = onIdleComplete;
-      mixerRef.current.addEventListener("finished", onIdleComplete);
+      // Schedule gentle idle variation after a dwell time
+      idleCycleTimerRef.current = setTimeout(() => {
+        if ((window as any).changeToNewRandomIdle) {
+          (window as any).changeToNewRandomIdle();
+        }
+      }, 12000);
     } else {
-      // For non-idle animations, loop infinitely
-      newAction.setLoop(THREE.LoopRepeat, Infinity);
+      controllerRef.current.playOnce(animName, () => {
+        // Return to an idle with a crossfade when the non-idle action ends
+        const idleIndex = animations.findIndex(a => a.name.toLowerCase().includes("idle"));
+        if (idleIndex !== -1) {
+          playAnimation(idleIndex);
+        }
+      });
     }
 
-    newAction.play();
-
-    currentActionRef.current = newAction;
     setCurrentAnimationIndex(index);
-    console.log(`🎬 Animation started: ${animations[index].name}, new current index: ${index}`);
+    console.log(`🎬 Animation started: ${animName}, new current index: ${index}`);
   };
 
   // Load animations when character scene is ready
@@ -155,15 +130,18 @@ function AvatarAnimator({
         console.log(`Loaded ${loadedAnimations.length} animations`);
         setAnimations(loadedAnimations);
 
-        // Set up animation mixer
+        // Set up animation controller
         if (characterScene) {
-          console.log("Setting up animation mixer...");
-          mixerRef.current = new THREE.AnimationMixer(characterScene);
+          console.log("Setting up animation controller...");
+          controllerRef.current = new AnimationController(characterScene, loadedAnimations, { crossFadeMs: 350 });
 
-          // start idle cycle
-          if ((window as any).startIdleVariation) {
-            (window as any).startIdleVariation();
+          // Start with a default idle
+          const idleIndex = loadedAnimations.findIndex(a => a.name.toLowerCase().includes("idle"));
+          if (idleIndex !== -1) {
+            playAnimation(idleIndex);
           }
+
+          // Idle variation is handled locally via idleCycleTimerRef
         } else {
           console.error("Character scene is null!");
           setError("Character scene failed to load");
@@ -181,40 +159,14 @@ function AvatarAnimator({
 
   // Function to play animation once with callback
   const playAnimationOnce = (index: number, onEnd?: () => void) => {
-    if (!mixerRef.current || index < 0 || index >= animations.length) return;
-
-    // Stop current animation
-    if (currentActionRef.current) {
-      currentActionRef.current.stop();
-    }
-
-    // Play new animation once
-    const newAction = mixerRef.current.clipAction(animations[index].clip);
-    newAction.setLoop(THREE.LoopOnce, 1);
-    newAction.clampWhenFinished = true;
-
-    const onFinish = () => {
-      if (onEnd) {
-        onEnd();
-      }
-
-      mixerRef.current?.removeEventListener("finished", onFinish);
-    };
-
-    mixerRef.current.addEventListener("finished", onFinish);
-
-    newAction.play();
-
-    currentActionRef.current = newAction;
+    if (!controllerRef.current || index < 0 || index >= animations.length) return;
+    controllerRef.current.playOnce(animations[index].name, onEnd);
     setCurrentAnimationIndex(index);
   };
 
   // Function to stop all animations
   const stopAnimation = () => {
-    if (currentActionRef.current) {
-      currentActionRef.current.stop();
-      currentActionRef.current = null;
-    }
+    controllerRef.current?.stop();
   };
 
   // Function to play animation by description
@@ -319,21 +271,16 @@ function AvatarAnimator({
 
   // Update animation mixer on each frame
   useFrame((state, delta) => {
-    if (mixerRef.current) {
-      mixerRef.current.update(delta);
-    }
+    controllerRef.current?.update(delta);
   });
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (mixerRef.current) {
-        mixerRef.current.stopAllAction();
-        // Remove idle listener if it exists
-        if (currentIdleListenerRef.current) {
-          mixerRef.current.removeEventListener("finished", currentIdleListenerRef.current);
-        }
+      if (idleCycleTimerRef.current) {
+        clearTimeout(idleCycleTimerRef.current);
       }
+      controllerRef.current?.dispose();
     };
   }, []);
 
@@ -539,7 +486,7 @@ export default function ModelViewer({
         backgroundUrl={backgroundUrl || undefined}
       />
 
-      <Canvas camera={{ position: [0, 4, 0], fov: 75 }} style={{ background: "transparent" }}>
+      <Canvas camera={{ position: [0, 8, 2], fov: 75 }} style={{ background: "transparent" }}>
         {/* Global Lighting Setup */}
         {/* Main ambient light for overall illumination */}
         <ambientLight intensity={0.2} color="#ffffff" />
@@ -581,8 +528,8 @@ export default function ModelViewer({
           maxDistance={3.5}
           minAzimuthAngle={-Math.PI / 18} // -10 degrees horizontal rotation
           maxAzimuthAngle={Math.PI / 18} // +10 degrees horizontal rotation
-          minPolarAngle={Math.PI / 2} // Lock vertical rotation at horizontal
-          maxPolarAngle={Math.PI / 2} // Lock vertical rotation at horizontal
+          minPolarAngle={Math.PI / 6} // Allow looking down from above (30 degrees)
+          maxPolarAngle={Math.PI / 2.2} // Allow slight upward look (about 80 degrees)
           rotateSpeed={0.3} // Reduced sensitivity (default is 1.0)
           onStart={handleRotationStart}
           onEnd={handleRotationEnd}

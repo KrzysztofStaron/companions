@@ -222,23 +222,7 @@ export default function Home() {
             );
             console.log("🎯 Animation result:", success);
 
-            if (success) {
-              console.log("🔄 Setting up return to idle...");
-              // Return to idle after animation completes using AnimationStateMachine
-              setTimeout(() => {
-                if ((window as any).returnToIdle) {
-                  (window as any).returnToIdle();
-                } else {
-                  // Fallback: find and play an idle animation manually
-                  const idleIndex = (window as any).ANIMATION_NAMES?.findIndex((name: string) =>
-                    name.toLowerCase().includes("idle")
-                  );
-                  if (idleIndex !== -1 && (window as any).playAnimation) {
-                    (window as any).playAnimation(idleIndex);
-                  }
-                }
-              }, 5000); // Default 5 second animation duration
-            }
+            // Non-idle animations will crossfade back to an idle internally
           } else {
             console.error("❌ playAnimationByDescription function not found!");
             console.log(
@@ -315,13 +299,7 @@ export default function Home() {
             );
             console.log("🎯 Greeting animation result:", success);
 
-            if (success) {
-              setTimeout(() => {
-                if ((window as any).returnToIdle) {
-                  (window as any).returnToIdle();
-                }
-              }, 5000);
-            }
+            // Controller handles return to idle
           }
         }
 

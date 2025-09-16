@@ -105,11 +105,13 @@ export default function AnimationStateMachine({
     onStateChange(newState);
     // Don't call onAnimationChange here to avoid recursion - let parent handle playback
 
-    // Set timeout to return to idle
-    const animationDuration = duration || 5000; // Default 5 seconds
-    timeoutRef.current = setTimeout(() => {
-      returnToIdle();
-    }, animationDuration);
+    // Only auto-return to idle if an explicit finite duration is provided
+    if (typeof duration === "number" && isFinite(duration) && duration > 0) {
+      const animationDuration = duration;
+      timeoutRef.current = setTimeout(() => {
+        returnToIdle();
+      }, animationDuration);
+    }
   };
 
   // Function to return to idle
@@ -209,10 +211,9 @@ export default function AnimationStateMachine({
     };
   }, []);
 
-  // Start idle cycling automatically when component mounts
+  // Do not auto-cycle here; ModelViewer handles gentle idle variation timing
   useEffect(() => {
-    console.log(`🔄 Component mounted - idle cycling enabled (based on animation completion)`);
-    // No timer needed - will cycle when idle animations complete
+    console.log(`🔄 AnimationStateMachine mounted`);
   }, []);
 
   // Expose functions globally (avoiding conflicts with ModelViewer)
