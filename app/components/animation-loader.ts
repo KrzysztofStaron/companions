@@ -10,10 +10,7 @@ export interface AnimationFile {
 // Comprehensive list of ALL animation files with descriptions
 export const ANIMATION_FILES: AnimationFile[] = [
   // Masculine Dance Animations
-  {
-    path: "/animation-library/masculine/glb/dance/F_Dances_001.glb",
-    description: "Dancy spin",
-  },
+
   {
     path: "/animation-library/masculine/glb/dance/F_Dances_004.glb",
     description: "cartwheel",
@@ -25,10 +22,6 @@ export const ANIMATION_FILES: AnimationFile[] = [
   {
     path: "/animation-library/masculine/glb/dance/M_Dances_008.glb",
     description: "Dance",
-  },
-  {
-    path: "/animation-library/masculine/glb/dance/M_Dances_009.glb",
-    description: "Snake hands dance",
   },
   // Masculine Expression Animations
   {
@@ -60,40 +53,28 @@ export const ANIMATION_FILES: AnimationFile[] = [
     description: "Confused",
   },
   {
-    path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_006.glb",
-    description: "Tired stretching",
-  },
-
-  {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_008.glb",
     description: "Come here",
   },
-
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_011.glb",
     description: "shaking your head ( no )",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_012.glb",
-    description: "Double thumbs up",
+    description: "thumbs up",
   },
-
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_014.glb",
     description: "Looking side to side",
   },
-
-  {
-    path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_016.glb",
-    description: "Sneaky thumbs down",
-  },
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_017.glb",
-    description: "Thumbs down visible",
+    description: "Thumbs down",
   },
   {
     path: "/animation-library/masculine/glb/expression/M_Standing_Expressions_018.glb",
-    description: "I'm gonna kill you",
+    description: "angry",
   },
 
   // Masculine Idle Animations
