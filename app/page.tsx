@@ -9,8 +9,10 @@ import { chatWithAI, ChatMessage, AnimationRequest } from "./actions/chat";
 import { getBackgroundStateSync } from "./lib/background-state";
 import { BackgroundRequest } from "./actions/background";
 import { getAvailableAnimationsForLLM } from "./components/animation-loader";
+import { useAudioPermission } from "./components/AudioPermissionManager";
 
 export default function Home() {
+  const { playAudio } = useAudioPermission();
   const [showDebugUI, setShowDebugUI] = useState(false);
   const isDevelopment = process.env.NODE_ENV === "development";
   const [inputValue, setInputValue] = useState("");
@@ -235,8 +237,7 @@ export default function Home() {
         // Play TTS audio if available
         if (aiResponse.audioUrl) {
           console.log("🔊 Playing TTS audio");
-          const audio = new Audio(aiResponse.audioUrl);
-          audio.play().catch(console.error);
+          playAudio(aiResponse.audioUrl);
         }
       } catch (error) {
         console.error("Error in AI chat:", error);
@@ -306,14 +307,11 @@ export default function Home() {
         // Play TTS audio for greeting if available
         if (aiResponse.audioUrl) {
           console.log("🔊 Playing greeting TTS audio");
-          const audio = new Audio(aiResponse.audioUrl);
-          audio.play().catch(console.error);
+          playAudio(aiResponse.audioUrl);
 
-          // Mark complete when audio finishes
-          audio.onended = () => {
-            console.log("🔊 Greeting audio finished");
-            setGreetingComplete(true);
-          };
+          // Mark complete when audio is attempted (since we can't track when it ends with the new system)
+          console.log("🔊 Greeting audio attempted");
+          setGreetingComplete(true);
 
           // Fallback timeout in case audio fails
           setTimeout(() => {

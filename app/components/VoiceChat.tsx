@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { ChatMessage, AnimationRequest, chatWithAI } from "../actions/chat";
+import { useAudioPermission } from "./AudioPermissionManager";
 
 interface VoiceChatProps {
   availableAnimations: string[];
@@ -18,10 +19,10 @@ export default function VoiceChat({
   isListening,
   onListeningChange,
 }: VoiceChatProps) {
+  const { playAudio } = useAudioPermission();
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // Initialize speech recognition
@@ -76,12 +77,7 @@ export default function VoiceChat({
     }
   }, [onListeningChange, transcript]);
 
-  // Handle audio playback
-  useEffect(() => {
-    if (audioElement) {
-      audioElement.play().catch(console.error);
-    }
-  }, [audioElement]);
+  // Audio playback is now handled by the AudioPermissionManager
 
   const startRecording = async () => {
     if (recognitionRef.current && !isRecording) {
@@ -136,8 +132,7 @@ export default function VoiceChat({
       // Play TTS audio if available
       if (aiResponse.audioUrl) {
         console.log("🔊 Playing TTS audio");
-        const audio = new Audio(aiResponse.audioUrl);
-        setAudioElement(audio);
+        playAudio(aiResponse.audioUrl);
       }
     } catch (error) {
       console.error("🎤 Error in voice chat:", error);

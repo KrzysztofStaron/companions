@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { ChatMessage, AnimationRequest, chatWithAI } from "../actions/chat";
+import { useAudioPermission } from "./AudioPermissionManager";
 import { AnimationState } from "./AnimationStateMachine";
 
 interface ChatInterfaceProps {
@@ -11,10 +12,10 @@ interface ChatInterfaceProps {
 }
 
 export default function ChatInterface({ availableAnimations, onAnimationRequest, animationState }: ChatInterfaceProps) {
+  const { playAudio } = useAudioPermission();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -22,12 +23,7 @@ export default function ChatInterface({ availableAnimations, onAnimationRequest,
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Handle audio playback
-  useEffect(() => {
-    if (audioElement) {
-      audioElement.play().catch(console.error);
-    }
-  }, [audioElement]);
+  // Audio playback is now handled by the AudioPermissionManager
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,8 +57,7 @@ export default function ChatInterface({ availableAnimations, onAnimationRequest,
 
       // Handle audio if present
       if (aiResponse.audioUrl) {
-        const audio = new Audio(aiResponse.audioUrl);
-        setAudioElement(audio);
+        playAudio(aiResponse.audioUrl);
       }
     } catch (error) {
       console.error("Error in chat:", error);
