@@ -39,7 +39,9 @@ export function AudioPermissionProvider({ children }: AudioPermissionProviderPro
       // User previously skipped, don't show modal
       setHasAudioPermission(false);
     } else {
-      // Show permission modal on first load
+      // First time user - start with audio enabled and show modal for permission
+      // This allows the app to load everything immediately
+      setHasAudioPermission(true);
       setShowPermissionModal(true);
     }
   }, []);
@@ -85,7 +87,18 @@ export function AudioPermissionProvider({ children }: AudioPermissionProviderPro
 
   const playAudio = async (audioUrl: string): Promise<boolean> => {
     if (hasAudioPermission) {
-      return await playAudioInternal(audioUrl);
+      try {
+        return await playAudioInternal(audioUrl);
+      } catch (error) {
+        console.warn("Audio playback failed, likely due to autoplay policy:", error);
+        // If audio fails and we haven't asked for permission yet, show modal
+        const savedPermission = localStorage.getItem("audioPermissionGranted");
+        if (savedPermission !== "true") {
+          setPendingAudio(audioUrl);
+          setShowPermissionModal(true);
+        }
+        return false;
+      }
     } else {
       // Store the audio for later playback after permission is granted
       setPendingAudio(audioUrl);
@@ -104,10 +117,10 @@ export function AudioPermissionProvider({ children }: AudioPermissionProviderPro
 
   const handleSkipAudio = () => {
     console.log("🔇 User chose to skip audio");
+    setHasAudioPermission(false);
     setShowPermissionModal(false);
     setPendingAudio(null);
     localStorage.setItem("audioPermissionSkipped", "true");
-    // Keep hasAudioPermission as false so audio won't play
   };
 
   return (
@@ -140,8 +153,8 @@ export function AudioPermissionProvider({ children }: AudioPermissionProviderPro
               <h2 className="text-2xl font-bold text-gray-900 mb-3">Enable Audio Experience</h2>
 
               <p className="text-gray-600 mb-6 leading-relaxed">
-                This companion uses voice and audio for the best interactive experience. Click "Enable Audio" to allow
-                audio playback and enjoy full conversations with your AI companion.
+                Your AI companion is ready to chat! For the full experience with voice responses and audio feedback,
+                please enable audio playback. You can continue using the app while this modal is open.
               </p>
 
               <div className="space-y-3">
