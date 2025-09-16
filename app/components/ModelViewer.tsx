@@ -494,7 +494,7 @@ export default function ModelViewer({
         backgroundUrl={backgroundUrl || undefined}
       />
 
-      <Canvas camera={{ position: [0, 8, 2], fov: 75 }} style={{ background: "transparent" }}>
+      <Canvas camera={{ position: [0, 4, 1], fov: 75 }} style={{ background: "transparent" }}>
         {/* Global Lighting Setup */}
         {/* Main ambient light for overall illumination */}
         <ambientLight intensity={0.2} color="#ffffff" />
@@ -536,7 +536,7 @@ export default function ModelViewer({
           maxDistance={3.5}
           minAzimuthAngle={-Math.PI / 18} // -10 degrees horizontal rotation
           maxAzimuthAngle={Math.PI / 18} // +10 degrees horizontal rotation
-          minPolarAngle={Math.PI / 4} // Prevent extreme top-down view (45 degrees minimum)
+          minPolarAngle={Math.PI / 3} // Prevent extreme top-down view (60 degrees minimum)
           maxPolarAngle={Math.PI / 2.5} // Prevent looking up at character (72 degrees maximum)
           rotateSpeed={0.3} // Reduced sensitivity (default is 1.0)
           onStart={handleRotationStart}
