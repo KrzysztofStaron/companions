@@ -373,7 +373,7 @@ export default function Home() {
       />
 
       {/* Debug UI Toggle Button - Only in Development */}
-      {isDevelopment && (
+      {false && isDevelopment && (
         <div className="absolute top-8 right-8 z-50">
           <button
             onClick={() => setShowDebugUI(!showDebugUI)}
@@ -386,7 +386,7 @@ export default function Home() {
       )}
 
       {/* Chat Messages - Only visible in development when debug is enabled */}
-      {isDevelopment && showDebugUI && messages.length > 0 && (
+      {false && isDevelopment && showDebugUI && messages.length > 0 && (
         <div className="absolute top-20 left-8 right-8 max-h-64 overflow-y-auto bg-black/20 backdrop-blur-md rounded-lg p-4 border border-white/20 z-30">
           {messages.map((message, index) => (
             <div key={index} className={`mb-3 ${message.role === "user" ? "text-right" : "text-left"}`}>
@@ -416,7 +416,7 @@ export default function Home() {
       )}
 
       {/* Voice Chat - Above the text input */}
-      <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-40">
+      <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-40 hidden">
         <VoiceChat
           availableAnimations={availableAnimations}
           onAnimationRequest={handleVoiceAnimationRequest}
