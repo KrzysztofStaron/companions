@@ -583,10 +583,23 @@ export default function ModelViewer({
         <div className="absolute top-4 left-4 text-yellow-500 bg-black/50 p-2 rounded z-50">Loading animations...</div>
       )}
 
-      {/* Character Switcher - Always visible */}
-      <div className="absolute top-4 left-4 z-10">
-        <CharacterSwitcher currentCharacter={currentCharacter} onCharacterChange={handleCharacterChange} />
-      </div>
+      {/* X Account Link */}
+      {!animationLoading && (
+        <div className="absolute top-4 left-4 z-10">
+          <a
+            href="https://x.com/KrzysztofStaron"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center space-x-2 px-4 py-2 bg-black/20 backdrop-blur-md border border-white/20 rounded-lg
+                     text-white hover:bg-black/30 transition-all duration-200 font-medium"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+            </svg>
+            <span>@KrzysztofStaron</span>
+          </a>
+        </div>
+      )}
 
       {/* Overlay text - Only visible when debug is enabled */}
       {showDebugUI && (
