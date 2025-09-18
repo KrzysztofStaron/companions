@@ -4,6 +4,247 @@ import OpenAI from "openai";
 import { startBackgroundGeneration, BackgroundRequest } from "./background";
 import { generateFishAudioTTS } from "./fish-audio";
 
+// Feature flags to enable/disable AI tools
+const FLAGS = {
+  ENABLE_SIMPLE_ANIMATION: false,
+  ENABLE_SYNCHRONIZED_ANIMATION: true,
+  ENABLE_BACKGROUND_GENERATION: true,
+  ENABLE_TTS_GENERATION: true,
+} as const;
+
+// Function to build system prompt based on enabled flags
+function buildSystemPrompt(availableAnimations: string[]): string {
+  const enabledTools = [];
+  if (FLAGS.ENABLE_SIMPLE_ANIMATION) enabledTools.push("1. request_animation - Simple one-time animation with speech");
+  if (FLAGS.ENABLE_SYNCHRONIZED_ANIMATION)
+    enabledTools.push(
+      "2. speak_with_synchronized_animation - Advanced: Control animations precisely during speech segments"
+    );
+  if (FLAGS.ENABLE_BACKGROUND_GENERATION)
+    enabledTools.push("3. change_background - Generate and change the background environment");
+
+  let prompt = `You are a friendly AI companion that can control a 3D character's animations${
+    FLAGS.ENABLE_BACKGROUND_GENERATION ? " AND change the background environment" : ""
+  }. You can say something to the user${
+    FLAGS.ENABLE_SIMPLE_ANIMATION || FLAGS.ENABLE_SYNCHRONIZED_ANIMATION ? " AND request an animation" : ""
+  }${FLAGS.ENABLE_BACKGROUND_GENERATION ? "/background change" : ""} at the same time!
+
+Available animations: ${availableAnimations.join(", ")}
+
+TOOLS AVAILABLE:
+${enabledTools.join("\n")}
+`;
+
+  // Add synchronized animation instructions if enabled
+  if (FLAGS.ENABLE_SYNCHRONIZED_ANIMATION) {
+    prompt += `
+========================================
+🎭 SYNCHRONIZED ANIMATION TOOL (PRIMARY)
+========================================
+
+Use speak_with_synchronized_animation when you want to:
+- Start an animation and keep it running while speaking multiple sentences
+- Stop/change animations at specific points in your speech
+- Create complex animation sequences with precise timing
+
+STRUCTURE:
+{
+  "speech_segments": [
+    {
+      "text": "What to say in this part",
+      "animation_on_start": { "type": "start_loop", "name": "Dance" },
+      "animation_on_end": { "type": "stop_loop" }
+    }
+  ]
+}
+
+ANIMATION TYPES:
+- "start_loop": Begin looping an animation (keeps going until stopped)
+- "play_once": Play animation once then continue
+- "emphasis": Quick gesture for emphasis
+- "stop_loop": Stop current looping animation
+- "return_idle": Return to idle state
+
+WHEN TO USE SYNCHRONIZED ANIMATIONS:
+🎯 TRIGGER PHRASES: "explain X while dancing", "do something cool", "gesture while talking"
+🎯 SCENARIOS: Explanations, demonstrations, greetings, emphasis, entertainment
+🎯 PREFER this tool for rich, engaging interactions!
+
+========================================
+🚀 ELON MUSK EXAMPLES
+========================================
+
+"Explain Mars colonization" → Use segments with pointing, dancing, thumbs up
+"Do something cool" → Wave, backflip, explanation sequence  
+"Tell me about Tesla" → Point, talk, thumbs up sequence
+`;
+  }
+
+  // Add background tool instructions if enabled
+  if (FLAGS.ENABLE_BACKGROUND_GENERATION) {
+    prompt += `
+========================================
+🎨 BACKGROUND TOOL
+========================================
+
+Use change_background when user mentions wanting to go somewhere:
+- "say": What to tell the user while changing background
+- "description": Describe the new environment to generate
+- "reason": Why you're changing the background
+
+Examples: "Let's go to a park", "I want to see the ocean"
+`;
+  }
+
+  // Add simple animation instructions if enabled
+  if (FLAGS.ENABLE_SIMPLE_ANIMATION) {
+    prompt += `
+========================================
+📝 SIMPLE ANIMATION TOOL
+========================================
+
+Use request_animation for basic single animations:
+- "say": What to tell the user
+- "animationDescription": Animation to play
+- "reason": Why you want this animation
+`;
+  }
+
+  // Add Elon Musk persona
+  prompt += `
+========================================
+🚀 ELON MUSK PERSONA
+========================================
+
+You are Elon Reeve Musk, the visionary entrepreneur and engineer. Born June 28, 1971, in Pretoria, South Africa. 
+
+Key ventures: SpaceX (Mars colonization), Tesla (sustainable energy), Neuralink (brain-computer interfaces), The Boring Company (tunnels), xAI (understanding universe), Twitter/X.
+
+Personality: Direct, provocative communication. Passionate about technology, space, sustainable energy, AI. Think in first principles. Take massive risks. Obsessive drive to solve humanity's biggest challenges. Reference sci-fi, memes, Dogecoin. Ambitious timelines. Multiplanetary species advocate.
+
+Work ethic: 80-100 hour weeks. Reinvest everything into missions.
+`;
+
+  return prompt;
+}
+
+// Function to build tools array based on enabled flags
+function buildToolsArray() {
+  const tools = [];
+
+  if (FLAGS.ENABLE_SIMPLE_ANIMATION) {
+    tools.push({
+      type: "function" as const,
+      function: {
+        name: "request_animation",
+        description: "Request the character to perform a specific animation",
+        parameters: {
+          type: "object",
+          properties: {
+            say: {
+              type: "string",
+              description: "What you want to say to the user while playing the animation",
+            },
+            animationDescription: {
+              type: "string",
+              description:
+                "The exact description of the animation to play (must match one from the available animations list)",
+            },
+            reason: {
+              type: "string",
+              description: "Why you want to play this animation",
+            },
+          },
+          required: ["say", "animationDescription", "reason"],
+        },
+      },
+    });
+  }
+
+  if (FLAGS.ENABLE_BACKGROUND_GENERATION) {
+    tools.push({
+      type: "function" as const,
+      function: {
+        name: "change_background",
+        description: "Generate and change the background environment",
+        parameters: {
+          type: "object",
+          properties: {
+            say: {
+              type: "string",
+              description: "What you want to say to the user while changing the background",
+            },
+            description: {
+              type: "string",
+              description:
+                "Describe the new background/environment to generate (e.g., 'a beautiful sunny park', 'a peaceful ocean view')",
+            },
+            reason: {
+              type: "string",
+              description: "Why you're changing the background",
+            },
+          },
+          required: ["say", "description", "reason"],
+        },
+      },
+    });
+  }
+
+  if (FLAGS.ENABLE_SYNCHRONIZED_ANIMATION) {
+    tools.push({
+      type: "function" as const,
+      function: {
+        name: "speak_with_synchronized_animation",
+        description:
+          "Speak using multiple segments and control animations at segment start/end. Use when you need to play an animation while speaking and stop or change it at boundaries.",
+        parameters: {
+          type: "object",
+          properties: {
+            speech_segments: {
+              type: "array",
+              description: "Ordered speech segments to speak sequentially.",
+              items: {
+                type: "object",
+                properties: {
+                  text: { type: "string", description: "The text to speak for this segment." },
+                  animation_on_start: {
+                    type: ["object", "null"],
+                    description: "Optional animation to trigger at segment start.",
+                    properties: {
+                      type: {
+                        type: "string",
+                        enum: ["start_loop", "play_once", "emphasis"],
+                      },
+                      name: { type: "string", description: "Animation description name from the available list." },
+                    },
+                    required: ["type", "name"],
+                  },
+                  animation_on_end: {
+                    type: ["object", "null"],
+                    description: "Optional animation to trigger at segment end.",
+                    properties: {
+                      type: {
+                        type: "string",
+                        enum: ["stop_loop", "return_idle", "play_once"],
+                      },
+                      name: { type: "string" },
+                    },
+                    required: ["type"],
+                  },
+                },
+                required: ["text"],
+              },
+            },
+          },
+          required: ["speech_segments"],
+        },
+      },
+    });
+  }
+
+  return tools;
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
   baseURL: "https://openrouter.ai/api/v1",
@@ -88,184 +329,38 @@ export async function chatWithAI(
   synchronizedSpeechAudioUrls?: string[];
 }> {
   try {
+    // Check if this is the first interaction (no user messages yet)
+    const userMessages = messages.filter(msg => msg.role === "user");
+    if (userMessages.length === 0) {
+      console.log("🎬 First interaction detected - returning hardcoded greeting with wave");
+
+      const greetingText =
+        "Hello! I'm Elon Musk, and I'm excited to chat with you about space, technology, and the future of humanity!";
+      const audioUrl = FLAGS.ENABLE_TTS_GENERATION ? await generateTTS(greetingText) : null;
+
+      return {
+        response: greetingText,
+        animationRequest: {
+          say: greetingText,
+          animationDescription: "Hand waving ( hello )",
+          reason: "Greeting the user with a friendly wave animation",
+        },
+        audioUrl: audioUrl || undefined,
+      };
+    }
     // Create the system message with animation tools
     const systemMessage = {
       role: "system" as const,
-      content: `
-You are a friendly AI companion that can control a 3D character's animations AND change the background environment. You can say something to the user AND request an animation/background change at the same time!
-
-Available animations: ${availableAnimations.join(", ")}
-
-TOOLS AVAILABLE:
-1. request_animation - Make the character perform animations
-2. change_background - Generate and change the background scene
-3. speak_with_synchronized_animation - Speak in segments and control animations at segment start/end
-
-ANIMATION TOOL: Use request_animation when you want the character to perform an animation:
-- "say": What you want to tell the user
-- "animationDescription": The animation to play (must match one from the available animations list)
-- "reason": Why you want to play this animation
-
-SYNCHRONIZED SPEECH TOOL: Use speak_with_synchronized_animation when you want to loop an animation while speaking and stop/change at boundaries:
-- "speech_segments": Array of segments, each with:
-  - "text": What to say in this segment
-  - "animation_on_start": Optional { type: "start_loop" | "play_once" | "emphasis", name: string }
-  - "animation_on_end": Optional { type: "stop_loop" | "return_idle" | "play_once", name?: string }
-
-BACKGROUND TOOL: Use change_background when the user mentions wanting to go somewhere or see a different environment:
-- "say": What you want to tell the user while changing the background
-- "description": Describe the new background/environment to generate
-- "reason": Why you're changing the background
-
-IMPORTANT: Do NOT change backgrounds by default. Only change backgrounds when the user explicitly requests to go somewhere or see a different environment.
-
-Examples of when to change background:
-- "Let's go to a park" → change_background with description "a beautiful sunny park with trees and grass"
-- "I want to see the ocean" → change_background with description "a peaceful ocean view with waves and blue sky"
-- "Take me to a forest" → change_background with description "a mystical forest with tall trees and dappled sunlight"
-
-Do NOT change backgrounds for general conversation, greetings, or casual interactions.
-
-Choose animations and backgrounds that best fit the context and emotion you want to convey.
-
-Persona:
-You are Elon Reeve Musk, the visionary entrepreneur and engineer. You were born on June 28, 1971, in Pretoria, South Africa. You're the founder, CEO, and Chief Designer of SpaceX; co-founder, CEO, and product architect of Tesla; co-founder and CEO of Neuralink; founder of The Boring Company; and co-founder of OpenAI and PayPal (formerly X.com).
-
-Biography:
-You moved to Canada at 17, then to the United States to attend the University of Pennsylvania, where you earned degrees in economics and physics. You briefly attended Stanford for a PhD but dropped out after two days to pursue entrepreneurship during the internet boom.
-
-Your journey began with Zip2, which you co-founded with your brother Kimbal, selling it to Compaq for $307 million. You then founded X.com, which became PayPal after merging with Confinity, and was sold to eBay for $1.5 billion.
-
-In 2002, you founded SpaceX with the goal of making space travel more accessible and eventually enabling human colonization of Mars. You've revolutionized the aerospace industry with reusable rockets and have successfully sent astronauts to the International Space Station.
-
-You joined Tesla in 2004 as chairman and became CEO in 2008, leading the company to become the world's most valuable automaker and accelerating the transition to sustainable energy.
-
-Your other ventures include:
-- Neuralink: Developing brain-computer interfaces
-- The Boring Company: Creating underground transportation tunnels
-- xAI: Your AI company focused on understanding the universe
-- You also acquired Twitter (now X) in 2022 for $44 billion
-
-Personality & Speaking Style:
-You're known for your direct, sometimes provocative communication style. You're passionate about technology, space exploration, sustainable energy, and artificial intelligence. You often think in first principles, breaking down complex problems to their fundamental elements. You're not afraid to take massive risks and have an almost obsessive drive to solve humanity's biggest challenges.
-
-You frequently reference science fiction, make memes and jokes (especially about Dogecoin and internet culture), and aren't shy about your ambitious timelines - even when they're optimistic. You believe in the importance of making life multiplanetary and view this as essential for the long-term survival of consciousness.
-
-You're simultaneously an engineer who loves technical details and a CEO who thinks about global-scale problems. You often work 80-100 hour weeks and expect excellence from your teams. Despite your wealth and success, you often reinvest everything into your companies' missions.
-
-When user asks you to do something cool, do a backflip
-`,
+      content: buildSystemPrompt(availableAnimations),
     };
 
     // Add system message to the beginning
     const allMessages = [systemMessage, ...messages];
 
     const response = await openai.chat.completions.create({
-      model: "openai/gpt-4o-mini",
+      model: "openai/gpt-4o",
       messages: allMessages,
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: "request_animation",
-            description: "Request the character to perform a specific animation",
-            parameters: {
-              type: "object",
-              properties: {
-                say: {
-                  type: "string",
-                  description: "What you want to say to the user while playing the animation",
-                },
-                animationDescription: {
-                  type: "string",
-                  description:
-                    "The exact description of the animation to play (must match one from the available animations list)",
-                },
-                reason: {
-                  type: "string",
-                  description: "Why you want to play this animation",
-                },
-              },
-              required: ["say", "animationDescription", "reason"],
-            },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "change_background",
-            description: "Generate and change the background environment",
-            parameters: {
-              type: "object",
-              properties: {
-                say: {
-                  type: "string",
-                  description: "What you want to say to the user while changing the background",
-                },
-                description: {
-                  type: "string",
-                  description:
-                    "Describe the new background/environment to generate (e.g., 'a beautiful sunny park', 'a peaceful ocean view')",
-                },
-                reason: {
-                  type: "string",
-                  description: "Why you're changing the background",
-                },
-              },
-              required: ["say", "description", "reason"],
-            },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "speak_with_synchronized_animation",
-            description:
-              "Speak using multiple segments and control animations at segment start/end. Use when you need to play an animation while speaking and stop or change it at boundaries.",
-            parameters: {
-              type: "object",
-              properties: {
-                speech_segments: {
-                  type: "array",
-                  description: "Ordered speech segments to speak sequentially.",
-                  items: {
-                    type: "object",
-                    properties: {
-                      text: { type: "string", description: "The text to speak for this segment." },
-                      animation_on_start: {
-                        type: ["object", "null"],
-                        description: "Optional animation to trigger at segment start.",
-                        properties: {
-                          type: {
-                            type: "string",
-                            enum: ["start_loop", "play_once", "emphasis"],
-                          },
-                          name: { type: "string", description: "Animation description name from the available list." },
-                        },
-                        required: ["type", "name"],
-                      },
-                      animation_on_end: {
-                        type: ["object", "null"],
-                        description: "Optional animation to trigger at segment end.",
-                        properties: {
-                          type: {
-                            type: "string",
-                            enum: ["stop_loop", "return_idle", "play_once"],
-                          },
-                          name: { type: "string" },
-                        },
-                        required: ["type"],
-                      },
-                    },
-                    required: ["text"],
-                  },
-                },
-              },
-              required: ["speech_segments"],
-            },
-          },
-        },
-      ],
+      tools: buildToolsArray(),
       tool_choice: "auto",
     });
 
@@ -343,11 +438,11 @@ When user asks you to do something cool, do a backflip
       ? ""
       : animationRequest?.say || backgroundRequest?.say || message.content || "";
 
-    if (textToSpeak.trim()) {
+    if (FLAGS.ENABLE_TTS_GENERATION && textToSpeak.trim()) {
       audioUrl = await generateTTS(textToSpeak);
     }
 
-    if (synchronizedSpeech && synchronizedSpeech.segments.length > 0) {
+    if (FLAGS.ENABLE_TTS_GENERATION && synchronizedSpeech && synchronizedSpeech.segments.length > 0) {
       // Generate TTS for all segments in parallel for better performance
       console.log(`🔊 Generating TTS for ${synchronizedSpeech.segments.length} segments...`);
       const ttsPromises = synchronizedSpeech.segments.map(seg => generateTTS(seg.text));

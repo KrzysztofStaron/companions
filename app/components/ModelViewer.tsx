@@ -302,28 +302,62 @@ function AvatarAnimator({
 
   // Play a looping animation by description (until explicitly stopped)
   const startLoopByDescription = (description: string): boolean => {
-    if (!controllerRef.current || animations.length === 0) return false;
+    console.group("🔄 Start Loop Animation");
+    console.log(`🎯 Description: "${description}"`);
+
+    if (!controllerRef.current || animations.length === 0) {
+      console.warn("❌ Controller not ready or no animations loaded");
+      console.groupEnd();
+      return false;
+    }
+
     const idx = resolveAnimationIndexByDescription(description);
-    if (idx === -1) return false;
+    if (idx === -1) {
+      console.warn("❌ Animation not found");
+      console.groupEnd();
+      return false;
+    }
 
     const animName = animations[idx].name;
+    console.log(`✅ Found animation: "${animName}" at index ${idx}`);
+
     // Cancel idle cycling while loop is active
     if (idleCycleTimerRef.current) {
       clearTimeout(idleCycleTimerRef.current);
       idleCycleTimerRef.current = null;
+      console.log("🛑 Cancelled idle cycling");
     }
+
     controllerRef.current.play(animName, THREE.LoopRepeat, Infinity);
     setCurrentAnimationIndex(idx);
+    console.log("✅ Loop animation started successfully");
+    console.groupEnd();
     return true;
   };
 
   // Play a single animation once by description (non-looping)
   const playOnceByDescription = (description: string): boolean => {
-    if (!controllerRef.current || animations.length === 0) return false;
+    console.group("🎬 Play Once Animation");
+    console.log(`🎯 Description: "${description}"`);
+
+    if (!controllerRef.current || animations.length === 0) {
+      console.warn("❌ Controller not ready or no animations loaded");
+      console.groupEnd();
+      return false;
+    }
+
     const idx = resolveAnimationIndexByDescription(description);
-    if (idx === -1) return false;
+    if (idx === -1) {
+      console.warn("❌ Animation not found");
+      console.groupEnd();
+      return false;
+    }
+
     const animName = animations[idx].name;
+    console.log(`✅ Found animation: "${animName}" at index ${idx}`);
+
     controllerRef.current.playOnce(animName, () => {
+      console.log("🔄 Animation completed, returning to idle");
       // On finish, return to idle
       const idleIndex = animations.findIndex(a => a.name.toLowerCase().includes("idle"));
       if (idleIndex !== -1) {
@@ -331,15 +365,34 @@ function AvatarAnimator({
       }
     });
     setCurrentAnimationIndex(idx);
+    console.log("✅ Once animation started successfully");
+    console.groupEnd();
     return true;
   };
 
   // Stop any current loop/action and return to an idle
   const stopLoopReturnIdle = (): boolean => {
-    if (!controllerRef.current || animations.length === 0) return false;
+    console.group("🛑 Stop Loop & Return to Idle");
+
+    if (!controllerRef.current || animations.length === 0) {
+      console.warn("❌ Controller not ready or no animations loaded");
+      console.groupEnd();
+      return false;
+    }
+
     const idleIndex = animations.findIndex(a => a.name.toLowerCase().includes("idle"));
-    if (idleIndex === -1) return false;
+    if (idleIndex === -1) {
+      console.warn("❌ No idle animation found");
+      console.groupEnd();
+      return false;
+    }
+
+    const idleName = animations[idleIndex].name;
+    console.log(`✅ Stopping current animation and switching to idle: "${idleName}"`);
+
     playAnimation(idleIndex);
+    console.log("✅ Successfully returned to idle");
+    console.groupEnd();
     return true;
   };
 

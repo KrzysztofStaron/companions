@@ -99,23 +99,34 @@ export default function Home() {
 
   // Wait for animation system to be ready
   useEffect(() => {
+    console.group("🎮 Animation System Initialization");
+
     const checkAnimationSystem = () => {
-      console.log("Checking animation system...", {
+      const systemState = {
         playAnimationByDescription: !!(window as any).playAnimationByDescription,
         ANIMATION_NAMES: !!(window as any).ANIMATION_NAMES,
         playAnimation: !!(window as any).playAnimation,
-      });
+        startLoopByDescription: !!(window as any).startLoopByDescription,
+        stopLoopReturnIdle: !!(window as any).stopLoopReturnIdle,
+        playOnceByDescription: !!(window as any).playOnceByDescription,
+      };
 
-      if (
-        (window as any).playAnimationByDescription &&
-        (window as any).ANIMATION_NAMES &&
-        (window as any).startLoopByDescription &&
-        (window as any).stopLoopReturnIdle &&
-        (window as any).playOnceByDescription
-      ) {
+      console.table([
+        {
+          "Core Functions": systemState.playAnimationByDescription ? "✅" : "❌",
+          "Animation Names": systemState.ANIMATION_NAMES ? "✅" : "❌",
+          "Loop Control": systemState.startLoopByDescription ? "✅" : "❌",
+          "Stop/Idle": systemState.stopLoopReturnIdle ? "✅" : "❌",
+          "Play Once": systemState.playOnceByDescription ? "✅" : "❌",
+        },
+      ]);
+
+      if (Object.values(systemState).every(Boolean)) {
+        console.log("✅ Animation system ready - all functions loaded");
+        console.groupEnd();
         setAnimationSystemReady(true);
-        console.log("Animation system ready");
       } else {
+        console.log("⏳ Waiting for animation system...");
         setTimeout(checkAnimationSystem, 100);
       }
     };
@@ -152,6 +163,10 @@ export default function Home() {
 
   const handleInputSubmit = async () => {
     if (inputValue.trim() && !isLoading && animationSystemReady) {
+      console.group("💬 User Input Processing");
+      console.log(`📝 User message: "${inputValue.trim()}"`);
+      console.time("AI Response Time");
+
       const userMessage: ChatMessage = {
         role: "user",
         content: inputValue.trim(),
@@ -237,81 +252,94 @@ export default function Home() {
           const segments = aiResponse.synchronizedSpeech.segments;
           const urls = aiResponse.synchronizedSpeechAudioUrls || [];
 
-          console.log("🎬 Starting synchronized speech playback:", {
-            segmentCount: segments.length,
-            audioUrlsCount: urls.length,
-            segments: segments.map((seg, i) => ({
-              index: i,
-              text: seg.text.substring(0, 30) + "...",
-              hasStartAnimation: !!seg.animation_on_start,
-              hasEndAnimation: !!seg.animation_on_end,
-              hasAudioUrl: !!urls[i],
-            })),
-          });
+          console.group("🎬 Synchronized Speech Playback");
+          console.log(`📊 Starting playback of ${segments.length} segments`);
+          console.table(
+            segments.map((seg, i) => ({
+              Segment: i + 1,
+              Text: seg.text.substring(0, 40) + (seg.text.length > 40 ? "..." : ""),
+              "Start Anim": seg.animation_on_start ? `${seg.animation_on_start.type}` : "❌",
+              "End Anim": seg.animation_on_end ? `${seg.animation_on_end.type}` : "❌",
+              "Has Audio": urls[i] ? "✅" : "❌",
+            }))
+          );
 
           // Play segments sequentially, triggering animations at boundaries
           (async () => {
             try {
               for (let i = 0; i < segments.length; i++) {
                 const seg = segments[i];
-                console.log(`🎬 Processing segment ${i + 1}/${segments.length}: "${seg.text.substring(0, 50)}..."`);
+
+                console.groupCollapsed(`🎬 Segment ${i + 1}/${segments.length}`);
+                console.log(`📝 Text: "${seg.text}"`);
 
                 // Start animation for segment
                 if (seg.animation_on_start) {
                   const cfg = seg.animation_on_start;
-                  console.log(`🎭 Starting animation: ${cfg.type} - ${cfg.name}`);
+                  console.group(`🎭 Starting Animation: ${cfg.type}`);
+                  console.log(`🎯 Animation: ${cfg.name}`);
                   try {
+                    let success = false;
                     if (cfg.type === "start_loop" && (window as any).startLoopByDescription) {
-                      const success = (window as any).startLoopByDescription(cfg.name);
-                      console.log(`🎭 Start loop result: ${success}`);
+                      success = (window as any).startLoopByDescription(cfg.name);
                     } else if (cfg.type === "play_once" && (window as any).playOnceByDescription) {
-                      const success = (window as any).playOnceByDescription(cfg.name);
-                      console.log(`🎭 Play once result: ${success}`);
+                      success = (window as any).playOnceByDescription(cfg.name);
                     } else if (cfg.type === "emphasis" && (window as any).playOnceByDescription) {
-                      const success = (window as any).playOnceByDescription(cfg.name);
-                      console.log(`🎭 Emphasis result: ${success}`);
+                      success = (window as any).playOnceByDescription(cfg.name);
                     }
+                    console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
                   } catch (error) {
-                    console.warn("Animation start error:", error);
+                    console.error("❌ Animation start error:", error);
                   }
+                  console.groupEnd();
                 }
 
                 // Play audio for this segment
                 const url = urls[i];
+                console.group("🔊 Audio Playback");
                 if (url) {
-                  console.log(`🔊 Playing audio for segment ${i + 1}`);
+                  console.time(`Audio Segment ${i + 1}`);
+                  console.log("🎵 Playing audio...");
                   await playAudioAndWait(url);
-                  console.log(`🔊 Audio completed for segment ${i + 1}`);
+                  console.timeEnd(`Audio Segment ${i + 1}`);
                 } else {
                   // Fallback: estimate timing if no URL
                   const estimatedDuration = Math.max(1000, segments[i].text.length * 50);
-                  console.log(`🔊 No audio URL, using estimated duration: ${estimatedDuration}ms`);
+                  console.warn(`⚠️ No audio URL, using estimated duration: ${estimatedDuration}ms`);
+                  console.time(`Estimated Wait ${i + 1}`);
                   await new Promise(res => setTimeout(res, estimatedDuration));
+                  console.timeEnd(`Estimated Wait ${i + 1}`);
                 }
+                console.groupEnd();
 
                 // End animation for segment
                 if (seg.animation_on_end) {
                   const cfg = seg.animation_on_end;
-                  console.log(`🎭 Ending animation: ${cfg.type}${cfg.name ? ` - ${cfg.name}` : ""}`);
+                  console.group(`🎭 Ending Animation: ${cfg.type}`);
+                  if (cfg.name) console.log(`🎯 Animation: ${cfg.name}`);
                   try {
+                    let success = false;
                     if (cfg.type === "stop_loop" && (window as any).stopLoopReturnIdle) {
-                      const success = (window as any).stopLoopReturnIdle();
-                      console.log(`🎭 Stop loop result: ${success}`);
+                      success = (window as any).stopLoopReturnIdle();
                     } else if (cfg.type === "return_idle" && (window as any).stopLoopReturnIdle) {
-                      const success = (window as any).stopLoopReturnIdle();
-                      console.log(`🎭 Return to idle result: ${success}`);
+                      success = (window as any).stopLoopReturnIdle();
                     } else if (cfg.type === "play_once" && cfg.name && (window as any).playOnceByDescription) {
-                      const success = (window as any).playOnceByDescription(cfg.name);
-                      console.log(`🎭 End animation play once result: ${success}`);
+                      success = (window as any).playOnceByDescription(cfg.name);
                     }
+                    console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
                   } catch (error) {
-                    console.warn("Animation end error:", error);
+                    console.error("❌ Animation end error:", error);
                   }
+                  console.groupEnd();
                 }
+
+                console.groupEnd(); // End segment group
               }
-              console.log("🎬 Synchronized speech playback completed");
+              console.log("✅ Synchronized speech playback completed successfully");
+              console.groupEnd(); // End main playback group
             } catch (error) {
-              console.error("🎬 Segment playback error:", error);
+              console.error("❌ Segment playback error:", error);
+              console.groupEnd(); // End main playback group on error
             }
           })();
         }
@@ -344,8 +372,13 @@ export default function Home() {
           console.log("🔊 Playing TTS audio");
           playAudio(aiResponse.audioUrl);
         }
+
+        console.timeEnd("AI Response Time");
+        console.groupEnd();
       } catch (error) {
-        console.error("Error in AI chat:", error);
+        console.error("❌ Error in AI chat:", error);
+        console.timeEnd("AI Response Time");
+        console.groupEnd();
         const errorMessage: ChatMessage = {
           role: "assistant",
           content: "I'm sorry, I encountered an error. Please try again.",

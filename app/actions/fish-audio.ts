@@ -35,7 +35,7 @@ export async function generateFishAudioTTS(text: string): Promise<string | null>
     try {
       for await (const chunk of session.tts(request)) {
         audioChunks.push(chunk);
-        console.log(`🔊 Received audio chunk: ${chunk.length} bytes`);
+        //console.log(`🔊 Received audio chunk: ${chunk.length} bytes`);
       }
     } finally {
       // Always close the session
