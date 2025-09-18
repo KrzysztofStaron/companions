@@ -4,6 +4,7 @@ import ModelViewer from "./components/ModelViewer";
 import LiquidGlass from "./components/ui/LiquidGlass";
 import AnimationStateMachine from "./components/AnimationStateMachine";
 import VoiceChat from "./components/VoiceChat";
+import SubtitleDisplay from "./components/SubtitleDisplay";
 import { useState, useEffect } from "react";
 import { chatWithAI, ChatMessage, AnimationRequest, SynchronizedSpeech } from "./actions/chat";
 import { BackgroundRequest, startBackgroundGeneration } from "./actions/background";
@@ -29,6 +30,26 @@ export default function Home() {
   const [currentBackgroundUrl, setCurrentBackgroundUrl] = useState<string | null>(null);
   const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
   const [backgroundGenerationDescription, setBackgroundGenerationDescription] = useState<string | null>(null);
+
+  // Subtitle state management
+  const [currentSubtitleText, setCurrentSubtitleText] = useState("");
+  const [isSubtitleVisible, setIsSubtitleVisible] = useState(false);
+
+  // Helper functions for subtitle management
+  const showSubtitle = (text: string) => {
+    console.log("📖 Showing subtitle:", text);
+    setCurrentSubtitleText(text);
+    setIsSubtitleVisible(true);
+  };
+
+  const hideSubtitle = () => {
+    console.log("📖 Hiding subtitle");
+    setIsSubtitleVisible(false);
+    // Clear text after fade out animation
+    setTimeout(() => {
+      setCurrentSubtitleText("");
+    }, 300);
+  };
 
   // Get available animations for the LLM
   useEffect(() => {
@@ -73,12 +94,21 @@ export default function Home() {
     };
     setMessages(prev => [...prev, assistantMessage]);
 
+    // Show subtitle for voice chat
+    showSubtitle(request.say);
+
     // Play the requested animation
     if ((window as any).playAnimationByDescription) {
       const success = (window as any).playAnimationByDescription(request.animationDescription);
       console.log("🎯 Voice animation result:", success);
 
       if (success) {
+        // Hide subtitle after estimated duration
+        const estimatedDuration = Math.max(2000, request.say.length * 100);
+        setTimeout(() => {
+          hideSubtitle();
+        }, estimatedDuration);
+
         // Return to idle after animation completes
         setTimeout(() => {
           if ((window as any).returnToIdle) {
@@ -94,6 +124,12 @@ export default function Home() {
           }
         }, 5000);
       }
+    } else {
+      // Hide subtitle even if animation fails
+      const estimatedDuration = Math.max(2000, request.say.length * 80);
+      setTimeout(() => {
+        hideSubtitle();
+      }, estimatedDuration);
     }
   };
 
@@ -273,6 +309,9 @@ export default function Home() {
                 console.groupCollapsed(`🎬 Segment ${i + 1}/${segments.length}`);
                 console.log(`📝 Text: "${seg.text}"`);
 
+                // Show subtitle for this segment
+                showSubtitle(seg.text);
+
                 // Start animation for segment
                 if (seg.animation_on_start) {
                   const cfg = seg.animation_on_start;
@@ -336,9 +375,15 @@ export default function Home() {
                 console.groupEnd(); // End segment group
               }
               console.log("✅ Synchronized speech playback completed successfully");
+
+              // Hide subtitle when all segments are done
+              hideSubtitle();
               console.groupEnd(); // End main playback group
             } catch (error) {
               console.error("❌ Segment playback error:", error);
+
+              // Hide subtitle on error
+              hideSubtitle();
               console.groupEnd(); // End main playback group on error
             }
           })();
@@ -348,6 +393,9 @@ export default function Home() {
         if (!aiResponse.synchronizedSpeech && aiResponse.animationRequest) {
           console.log("🎭 AI requested animation:", aiResponse.animationRequest);
           console.log("💬 AI says:", aiResponse.animationRequest.say);
+
+          // Show subtitle for simple speech
+          showSubtitle(aiResponse.animationRequest.say);
 
           // Use the global playAnimationByDescription function
           if ((window as any).playAnimationByDescription) {
@@ -367,10 +415,39 @@ export default function Home() {
           }
         }
 
+        // Handle simple speech without animation (background requests, etc.)
+        if (
+          !aiResponse.synchronizedSpeech &&
+          !aiResponse.animationRequest &&
+          (aiResponse.backgroundRequest?.say || aiResponse.response)
+        ) {
+          const speechText = aiResponse.backgroundRequest?.say || aiResponse.response;
+          console.log("💬 Simple speech:", speechText);
+          showSubtitle(speechText);
+        }
+
         // Play TTS audio if available
         if (aiResponse.audioUrl) {
           console.log("🔊 Playing TTS audio");
           playAudio(aiResponse.audioUrl);
+
+          // Estimate subtitle duration based on text length for simple speech
+          if (!aiResponse.synchronizedSpeech) {
+            const speechText =
+              aiResponse.animationRequest?.say || aiResponse.backgroundRequest?.say || aiResponse.response;
+            const estimatedDuration = Math.max(2000, speechText.length * 100); // ~100ms per character
+            setTimeout(() => {
+              hideSubtitle();
+            }, estimatedDuration);
+          }
+        } else if (!aiResponse.synchronizedSpeech) {
+          // No audio, hide subtitle after a shorter delay for simple speech
+          const speechText =
+            aiResponse.animationRequest?.say || aiResponse.backgroundRequest?.say || aiResponse.response;
+          const estimatedDuration = Math.max(2000, speechText.length * 80); // ~80ms per character without audio
+          setTimeout(() => {
+            hideSubtitle();
+          }, estimatedDuration);
         }
 
         console.timeEnd("AI Response Time");
@@ -432,6 +509,10 @@ export default function Home() {
 
         if (aiResponse.animationRequest) {
           console.log("🎭 Greeting animation request:", aiResponse.animationRequest);
+
+          // Show greeting subtitle
+          showSubtitle(aiResponse.animationRequest.say);
+
           if ((window as any).playAnimationByDescription) {
             const success = (window as any).playAnimationByDescription(
               aiResponse.animationRequest.animationDescription
@@ -447,18 +528,27 @@ export default function Home() {
           console.log("🔊 Playing greeting TTS audio");
           playAudio(aiResponse.audioUrl);
 
-          // Mark complete when audio is attempted (since we can't track when it ends with the new system)
+          // Mark complete when audio is attempted and hide subtitle
           console.log("🔊 Greeting audio attempted");
-          setGreetingComplete(true);
+
+          // Hide subtitle after estimated duration
+          const greetingText = aiResponse.animationRequest?.say || aiResponse.response;
+          const estimatedDuration = Math.max(3000, greetingText.length * 100);
+          setTimeout(() => {
+            hideSubtitle();
+            setGreetingComplete(true);
+          }, estimatedDuration);
 
           // Fallback timeout in case audio fails
           setTimeout(() => {
+            hideSubtitle();
             setGreetingComplete(true);
           }, 10000);
         } else {
-          // No audio, mark complete after animation timeout
+          // No audio, mark complete after animation timeout and hide subtitle
           setTimeout(() => {
             console.log("⏰ Greeting animation timeout finished");
+            hideSubtitle();
             setGreetingComplete(true);
           }, 3000);
         }
@@ -563,6 +653,9 @@ export default function Home() {
           onListeningChange={setIsListening}
         />
       </div>
+
+      {/* Subtitle Display */}
+      <SubtitleDisplay currentText={currentSubtitleText} isVisible={isSubtitleVisible} position="bottom" />
 
       {/* Beautiful Liquid Glass Input - Always visible */}
       <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4">
