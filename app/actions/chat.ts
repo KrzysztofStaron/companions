@@ -270,6 +270,20 @@ When user asks you to do something cool, do a backflip
     });
 
     const message = response.choices[0].message;
+
+    // Log the raw LLM response for debugging
+    console.log("🤖 LLM Response:", {
+      content: message.content,
+      tool_calls: message.tool_calls?.map(tc =>
+        tc.type === "function"
+          ? {
+              function_name: tc.function?.name,
+              arguments: tc.function?.arguments,
+            }
+          : tc
+      ),
+    });
+
     let animationRequest: AnimationRequest | undefined;
     let backgroundRequest: BackgroundRequest | undefined;
     let synchronizedSpeech: SynchronizedSpeech | undefined;
@@ -288,6 +302,7 @@ When user asks you to do something cool, do a backflip
                 animationDescription: args.animationDescription,
                 reason: args.reason,
               };
+              console.log("🎭 Animation request:", animationRequest);
             } else if (toolCall.function.name === "change_background") {
               // Store background request - client will handle generation
               backgroundRequest = {
@@ -295,7 +310,7 @@ When user asks you to do something cool, do a backflip
                 reason: args.reason,
                 say: args.say,
               };
-              console.log(`🎨 Background change requested: ${args.description}`);
+              console.log("🎨 Background change requested:", backgroundRequest);
             } else if (toolCall.function.name === "speak_with_synchronized_animation") {
               if (Array.isArray(args.speech_segments)) {
                 const segments: SpeechSegment[] = args.speech_segments.map((seg: any) => ({
@@ -304,6 +319,15 @@ When user asks you to do something cool, do a backflip
                   animation_on_end: seg.animation_on_end ?? null,
                 }));
                 synchronizedSpeech = { segments };
+                console.log("🎬 Synchronized speech request:", {
+                  segmentCount: segments.length,
+                  segments: segments.map((seg, i) => ({
+                    index: i,
+                    text: seg.text.substring(0, 50) + (seg.text.length > 50 ? "..." : ""),
+                    startAnimation: seg.animation_on_start,
+                    endAnimation: seg.animation_on_end,
+                  })),
+                });
               }
             }
           } catch (error) {
@@ -325,12 +349,17 @@ When user asks you to do something cool, do a backflip
 
     if (synchronizedSpeech && synchronizedSpeech.segments.length > 0) {
       // Generate TTS for all segments in parallel for better performance
+      console.log(`🔊 Generating TTS for ${synchronizedSpeech.segments.length} segments...`);
       const ttsPromises = synchronizedSpeech.segments.map(seg => generateTTS(seg.text));
       const urls = await Promise.all(ttsPromises);
       synchronizedSpeechAudioUrls = urls.map(url => url || "");
+      console.log("🔊 TTS generation complete:", {
+        successCount: urls.filter(url => url).length,
+        totalSegments: urls.length,
+      });
     }
 
-    return {
+    const finalResponse = {
       response: message.content || (synchronizedSpeech ? synchronizedSpeech.segments.map(s => s.text).join(" ") : ""),
       animationRequest,
       backgroundRequest,
@@ -338,6 +367,19 @@ When user asks you to do something cool, do a backflip
       synchronizedSpeech,
       synchronizedSpeechAudioUrls,
     };
+
+    console.log("✅ Final AI response structure:", {
+      hasResponse: !!finalResponse.response,
+      hasAnimationRequest: !!finalResponse.animationRequest,
+      hasBackgroundRequest: !!finalResponse.backgroundRequest,
+      hasAudioUrl: !!finalResponse.audioUrl,
+      hasSynchronizedSpeech: !!finalResponse.synchronizedSpeech,
+      synchronizedSegments: finalResponse.synchronizedSpeech?.segments.length || 0,
+      hasSegmentAudioUrls: !!finalResponse.synchronizedSpeechAudioUrls,
+      segmentAudioUrlsCount: finalResponse.synchronizedSpeechAudioUrls?.length || 0,
+    });
+
+    return finalResponse;
   } catch (error: unknown) {
     console.error("Error in AI chat:", error);
 
