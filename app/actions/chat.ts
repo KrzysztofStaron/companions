@@ -20,6 +20,27 @@ export interface AnimationRequest {
   say: string; // What the AI should say to the user
 }
 
+// Segment-based synchronized speech structures
+export interface SpeechSegmentAnimationStart {
+  type: "start_loop" | "play_once" | "emphasis";
+  name: string;
+}
+
+export interface SpeechSegmentAnimationEnd {
+  type: "stop_loop" | "return_idle" | "play_once";
+  name?: string;
+}
+
+export interface SpeechSegment {
+  text: string;
+  animation_on_start?: SpeechSegmentAnimationStart | null;
+  animation_on_end?: SpeechSegmentAnimationEnd | null;
+}
+
+export interface SynchronizedSpeech {
+  segments: SpeechSegment[];
+}
+
 export async function generateTTS(text: string): Promise<string | null> {
   try {
     console.log(`🔊 Generating TTS for: "${text.substring(0, 50)}..."`);
@@ -63,6 +84,8 @@ export async function chatWithAI(
   animationRequest?: AnimationRequest;
   backgroundRequest?: BackgroundRequest;
   audioUrl?: string;
+  synchronizedSpeech?: SynchronizedSpeech;
+  synchronizedSpeechAudioUrls?: string[];
 }> {
   try {
     // Create the system message with animation tools
@@ -76,11 +99,18 @@ Available animations: ${availableAnimations.join(", ")}
 TOOLS AVAILABLE:
 1. request_animation - Make the character perform animations
 2. change_background - Generate and change the background scene
+3. speak_with_synchronized_animation - Speak in segments and control animations at segment start/end
 
 ANIMATION TOOL: Use request_animation when you want the character to perform an animation:
 - "say": What you want to tell the user
 - "animationDescription": The animation to play (must match one from the available animations list)
 - "reason": Why you want to play this animation
+
+SYNCHRONIZED SPEECH TOOL: Use speak_with_synchronized_animation when you want to loop an animation while speaking and stop/change at boundaries:
+- "speech_segments": Array of segments, each with:
+  - "text": What to say in this segment
+  - "animation_on_start": Optional { type: "start_loop" | "play_once" | "emphasis", name: string }
+  - "animation_on_end": Optional { type: "stop_loop" | "return_idle" | "play_once", name?: string }
 
 BACKGROUND TOOL: Use change_background when the user mentions wanting to go somewhere or see a different environment:
 - "say": What you want to tell the user while changing the background
@@ -186,6 +216,55 @@ When user asks you to do something cool, do a backflip
             },
           },
         },
+        {
+          type: "function",
+          function: {
+            name: "speak_with_synchronized_animation",
+            description:
+              "Speak using multiple segments and control animations at segment start/end. Use when you need to play an animation while speaking and stop or change it at boundaries.",
+            parameters: {
+              type: "object",
+              properties: {
+                speech_segments: {
+                  type: "array",
+                  description: "Ordered speech segments to speak sequentially.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      text: { type: "string", description: "The text to speak for this segment." },
+                      animation_on_start: {
+                        type: ["object", "null"],
+                        description: "Optional animation to trigger at segment start.",
+                        properties: {
+                          type: {
+                            type: "string",
+                            enum: ["start_loop", "play_once", "emphasis"],
+                          },
+                          name: { type: "string", description: "Animation description name from the available list." },
+                        },
+                        required: ["type", "name"],
+                      },
+                      animation_on_end: {
+                        type: ["object", "null"],
+                        description: "Optional animation to trigger at segment end.",
+                        properties: {
+                          type: {
+                            type: "string",
+                            enum: ["stop_loop", "return_idle", "play_once"],
+                          },
+                          name: { type: "string" },
+                        },
+                        required: ["type"],
+                      },
+                    },
+                    required: ["text"],
+                  },
+                },
+              },
+              required: ["speech_segments"],
+            },
+          },
+        },
       ],
       tool_choice: "auto",
     });
@@ -193,6 +272,8 @@ When user asks you to do something cool, do a backflip
     const message = response.choices[0].message;
     let animationRequest: AnimationRequest | undefined;
     let backgroundRequest: BackgroundRequest | undefined;
+    let synchronizedSpeech: SynchronizedSpeech | undefined;
+    let synchronizedSpeechAudioUrls: string[] | undefined;
 
     // Check if the AI wants to use tools
     if (message.tool_calls && message.tool_calls.length > 0) {
@@ -215,6 +296,15 @@ When user asks you to do something cool, do a backflip
                 say: args.say,
               };
               console.log(`🎨 Background change requested: ${args.description}`);
+            } else if (toolCall.function.name === "speak_with_synchronized_animation") {
+              if (Array.isArray(args.speech_segments)) {
+                const segments: SpeechSegment[] = args.speech_segments.map((seg: any) => ({
+                  text: String(seg.text ?? ""),
+                  animation_on_start: seg.animation_on_start ?? null,
+                  animation_on_end: seg.animation_on_end ?? null,
+                }));
+                synchronizedSpeech = { segments };
+              }
             }
           } catch (error) {
             console.error(`Error parsing ${toolCall.function.name} request:`, error);
@@ -223,19 +313,30 @@ When user asks you to do something cool, do a backflip
       }
     }
 
-    // Generate TTS for the AI response
+    // If synchronized speech is present, generate per-segment TTS here
     let audioUrl: string | null = null;
-    const textToSpeak = animationRequest?.say || backgroundRequest?.say || message.content || "";
+    const textToSpeak = synchronizedSpeech
+      ? ""
+      : animationRequest?.say || backgroundRequest?.say || message.content || "";
 
     if (textToSpeak.trim()) {
       audioUrl = await generateTTS(textToSpeak);
     }
 
+    if (synchronizedSpeech && synchronizedSpeech.segments.length > 0) {
+      // Generate TTS for all segments in parallel for better performance
+      const ttsPromises = synchronizedSpeech.segments.map(seg => generateTTS(seg.text));
+      const urls = await Promise.all(ttsPromises);
+      synchronizedSpeechAudioUrls = urls.map(url => url || "");
+    }
+
     return {
-      response: message.content || "",
+      response: message.content || (synchronizedSpeech ? synchronizedSpeech.segments.map(s => s.text).join(" ") : ""),
       animationRequest,
       backgroundRequest,
       audioUrl: audioUrl || undefined,
+      synchronizedSpeech,
+      synchronizedSpeechAudioUrls,
     };
   } catch (error: unknown) {
     console.error("Error in AI chat:", error);

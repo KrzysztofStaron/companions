@@ -5,7 +5,7 @@ import LiquidGlass from "./components/ui/LiquidGlass";
 import AnimationStateMachine from "./components/AnimationStateMachine";
 import VoiceChat from "./components/VoiceChat";
 import { useState, useEffect } from "react";
-import { chatWithAI, ChatMessage, AnimationRequest } from "./actions/chat";
+import { chatWithAI, ChatMessage, AnimationRequest, SynchronizedSpeech } from "./actions/chat";
 import { BackgroundRequest, startBackgroundGeneration } from "./actions/background";
 import { getAvailableAnimationsForLLM } from "./components/animation-loader";
 import { useAudioPermission } from "./components/AudioPermissionManager";
@@ -106,7 +106,13 @@ export default function Home() {
         playAnimation: !!(window as any).playAnimation,
       });
 
-      if ((window as any).playAnimationByDescription && (window as any).ANIMATION_NAMES) {
+      if (
+        (window as any).playAnimationByDescription &&
+        (window as any).ANIMATION_NAMES &&
+        (window as any).startLoopByDescription &&
+        (window as any).stopLoopReturnIdle &&
+        (window as any).playOnceByDescription
+      ) {
         setAnimationSystemReady(true);
         console.log("Animation system ready");
       } else {
@@ -157,13 +163,41 @@ export default function Home() {
       setIsLoading(true);
 
       try {
+        // Helper to play a segment audio URL and wait for completion
+        const playAudioAndWait = async (url: string) => {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const audio = new Audio(url);
+              const cleanup = () => {
+                audio.removeEventListener("ended", onEnded);
+                audio.removeEventListener("error", onError);
+              };
+              const onEnded = () => {
+                cleanup();
+                resolve();
+              };
+              const onError = () => {
+                cleanup();
+                resolve();
+              };
+              audio.addEventListener("ended", onEnded);
+              audio.addEventListener("error", onError);
+              // Start playback; if it fails, resolve and continue with estimates
+              audio.play().catch(() => resolve());
+            });
+          } catch {
+            // Ignore; will fallback to estimated delay by caller
+          }
+        };
         // Get AI response with animation request
         const aiResponse = await chatWithAI([...messages, userMessage], availableAnimations);
 
         // Add AI response to chat - use the "say" parameter if animation/background is requested, otherwise use the response
         const assistantMessage: ChatMessage = {
           role: "assistant",
-          content: aiResponse.animationRequest?.say || aiResponse.backgroundRequest?.say || aiResponse.response,
+          content: aiResponse.synchronizedSpeech
+            ? aiResponse.synchronizedSpeech.segments.map(s => s.text).join(" ")
+            : aiResponse.animationRequest?.say || aiResponse.backgroundRequest?.say || aiResponse.response,
         };
         setMessages(prev => [...prev, assistantMessage]);
 
@@ -198,8 +232,66 @@ export default function Home() {
             });
         }
 
-        // Handle animation request if present
-        if (aiResponse.animationRequest) {
+        // Handle synchronized speech if present
+        if (aiResponse.synchronizedSpeech && aiResponse.synchronizedSpeech.segments.length > 0) {
+          const segments = aiResponse.synchronizedSpeech.segments;
+          const urls = aiResponse.synchronizedSpeechAudioUrls || [];
+
+          // Play segments sequentially, triggering animations at boundaries
+          (async () => {
+            try {
+              for (let i = 0; i < segments.length; i++) {
+                const seg = segments[i];
+
+                // Start animation for segment
+                if (seg.animation_on_start) {
+                  const cfg = seg.animation_on_start;
+                  try {
+                    if (cfg.type === "start_loop" && (window as any).startLoopByDescription) {
+                      (window as any).startLoopByDescription(cfg.name);
+                    } else if (cfg.type === "play_once" && (window as any).playOnceByDescription) {
+                      (window as any).playOnceByDescription(cfg.name);
+                    } else if (cfg.type === "emphasis" && (window as any).playOnceByDescription) {
+                      (window as any).playOnceByDescription(cfg.name);
+                    }
+                  } catch (error) {
+                    console.warn("Animation start error:", error);
+                  }
+                }
+
+                // Play audio for this segment
+                const url = urls[i];
+                if (url) {
+                  await playAudioAndWait(url);
+                } else {
+                  // Fallback: estimate timing if no URL
+                  await new Promise(res => setTimeout(res, Math.max(1000, segments[i].text.length * 50)));
+                }
+
+                // End animation for segment
+                if (seg.animation_on_end) {
+                  const cfg = seg.animation_on_end;
+                  try {
+                    if (cfg.type === "stop_loop" && (window as any).stopLoopReturnIdle) {
+                      (window as any).stopLoopReturnIdle();
+                    } else if (cfg.type === "return_idle" && (window as any).stopLoopReturnIdle) {
+                      (window as any).stopLoopReturnIdle();
+                    } else if (cfg.type === "play_once" && cfg.name && (window as any).playOnceByDescription) {
+                      (window as any).playOnceByDescription(cfg.name);
+                    }
+                  } catch (error) {
+                    console.warn("Animation end error:", error);
+                  }
+                }
+              }
+            } catch (error) {
+              console.error("Segment playback error:", error);
+            }
+          })();
+        }
+
+        // Handle simple animation request if present (legacy)
+        if (!aiResponse.synchronizedSpeech && aiResponse.animationRequest) {
           console.log("🎭 AI requested animation:", aiResponse.animationRequest);
           console.log("💬 AI says:", aiResponse.animationRequest.say);
 

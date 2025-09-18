@@ -269,6 +269,80 @@ function AvatarAnimator({
     }
   };
 
+  // Helper: resolve animation index by exact description or keyword
+  const resolveAnimationIndexByDescription = (description: string): number => {
+    const availableDescriptions = getAvailableAnimationsForLLM();
+    const exactMatch = availableDescriptions.find((desc: string) => desc === description);
+    if (exactMatch) {
+      const descriptionIndex = availableDescriptions.indexOf(exactMatch);
+      if (descriptionIndex !== -1 && descriptionIndex < animations.length) return descriptionIndex;
+    }
+
+    const descriptionLower = description.toLowerCase();
+    const idx = animations.findIndex(anim => {
+      const nameLower = anim.name.toLowerCase();
+      if (descriptionLower.includes("idle") && nameLower.includes("idle")) return true;
+      if (descriptionLower.includes("dance") && nameLower.includes("dance")) return true;
+      if (descriptionLower.includes("run") && nameLower.includes("run")) return true;
+      if (descriptionLower.includes("walk") && nameLower.includes("walk")) return true;
+      if (descriptionLower.includes("jog") && nameLower.includes("jog")) return true;
+      if (descriptionLower.includes("talk") && nameLower.includes("talk")) return true;
+      if (descriptionLower.includes("expression") && nameLower.includes("expression")) return true;
+      if (descriptionLower.includes("crouch") && nameLower.includes("crouch")) return true;
+      if (descriptionLower.includes("falling") && nameLower.includes("falling")) return true;
+      if (descriptionLower.includes("jump") && nameLower.includes("jump")) return true;
+      if (descriptionLower.includes("strafe") && nameLower.includes("strafe")) return true;
+      if (descriptionLower.includes("thumbs") && nameLower.includes("thumbs")) return true;
+      if (descriptionLower.includes("wave") && nameLower.includes("wave")) return true;
+      if (descriptionLower.includes("nod") && nameLower.includes("nod")) return true;
+      return false;
+    });
+    return idx;
+  };
+
+  // Play a looping animation by description (until explicitly stopped)
+  const startLoopByDescription = (description: string): boolean => {
+    if (!controllerRef.current || animations.length === 0) return false;
+    const idx = resolveAnimationIndexByDescription(description);
+    if (idx === -1) return false;
+
+    const animName = animations[idx].name;
+    // Cancel idle cycling while loop is active
+    if (idleCycleTimerRef.current) {
+      clearTimeout(idleCycleTimerRef.current);
+      idleCycleTimerRef.current = null;
+    }
+    controllerRef.current.play(animName, THREE.LoopRepeat, Infinity);
+    setCurrentAnimationIndex(idx);
+    return true;
+  };
+
+  // Play a single animation once by description (non-looping)
+  const playOnceByDescription = (description: string): boolean => {
+    if (!controllerRef.current || animations.length === 0) return false;
+    const idx = resolveAnimationIndexByDescription(description);
+    if (idx === -1) return false;
+    const animName = animations[idx].name;
+    controllerRef.current.playOnce(animName, () => {
+      // On finish, return to idle
+      const idleIndex = animations.findIndex(a => a.name.toLowerCase().includes("idle"));
+      if (idleIndex !== -1) {
+        playAnimation(idleIndex);
+      }
+    });
+    setCurrentAnimationIndex(idx);
+    return true;
+  };
+
+  // Stop any current loop/action and return to an idle
+  const stopLoopReturnIdle = (): boolean => {
+    if (!controllerRef.current || animations.length === 0) return false;
+    const idleIndex = animations.findIndex(a => a.name.toLowerCase().includes("idle"));
+    if (idleIndex === -1) return false;
+    playAnimation(idleIndex);
+    return true;
+  };
+
   // Update animation mixer on each frame
   useFrame((state, delta) => {
     controllerRef.current?.update(delta);
@@ -291,10 +365,23 @@ function AvatarAnimator({
     (window as any).playAnimationOnce = playAnimationOnce;
     (window as any).stopAnimation = stopAnimation;
     (window as any).playAnimationByDescription = playAnimationByDescription;
+    (window as any).startLoopByDescription = startLoopByDescription;
+    (window as any).stopLoopReturnIdle = stopLoopReturnIdle;
+    (window as any).playOnceByDescription = playOnceByDescription;
     (window as any).ANIMATION_NAMES = ANIMATION_NAMES;
     (window as any).animations = animations;
     (window as any).currentAnimationIndex = currentAnimationIndex;
-  }, [animations, playAnimation, playAnimationOnce, stopAnimation, playAnimationByDescription, currentAnimationIndex]);
+  }, [
+    animations,
+    playAnimation,
+    playAnimationOnce,
+    stopAnimation,
+    playAnimationByDescription,
+    startLoopByDescription,
+    stopLoopReturnIdle,
+    playOnceByDescription,
+    currentAnimationIndex,
+  ]);
 
   return (
     <>
