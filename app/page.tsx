@@ -566,6 +566,9 @@ export default function Home() {
             }
           }
 
+          // Mark greeting as completed immediately when response is ready
+          setGreetingComplete(true);
+
           // Handle synchronized speech (advanced animation control)
           if (aiResponse.synchronizedSpeech && aiResponse.synchronizedSpeechAudioUrls) {
             console.log("🎬 Processing synchronized speech segments...");
@@ -618,7 +621,6 @@ export default function Home() {
 
             // Hide subtitle after all segments complete
             setTimeout(() => hideSubtitle(), 1000);
-            setGreetingComplete(true);
           }
           // Handle simple animation requests
           else if (aiResponse.animationRequest) {
@@ -639,7 +641,6 @@ export default function Home() {
                 const estimatedDuration = Math.max(2000, aiResponse.animationRequest.say.length * 100);
                 setTimeout(() => {
                   hideSubtitle();
-                  setGreetingComplete(true);
                 }, estimatedDuration);
 
                 // Return to idle after animation completes
@@ -656,15 +657,12 @@ export default function Home() {
                     }
                   }
                 }, 5000);
-              } else {
-                setGreetingComplete(true);
               }
             } else {
               // Hide subtitle even if animation fails
               const estimatedDuration = Math.max(2000, aiResponse.animationRequest.say.length * 80);
               setTimeout(() => {
                 hideSubtitle();
-                setGreetingComplete(true);
               }, estimatedDuration);
             }
           } else {
@@ -673,7 +671,6 @@ export default function Home() {
             const estimatedDuration = Math.max(2000, aiResponse.response.length * 80);
             setTimeout(() => {
               hideSubtitle();
-              setGreetingComplete(true);
             }, estimatedDuration);
           }
 
