@@ -329,25 +329,6 @@ export async function chatWithAI(
   synchronizedSpeechAudioUrls?: string[];
 }> {
   try {
-    // Check if this is the first interaction (no user messages yet)
-    const userMessages = messages.filter(msg => msg.role === "user");
-    if (userMessages.length === 0) {
-      console.log("🎬 First interaction detected - returning hardcoded greeting with wave");
-
-      const greetingText =
-        "Hello! I'm Elon Musk, and I'm excited to chat with you about space, technology, and the future of humanity!";
-      const audioUrl = FLAGS.ENABLE_TTS_GENERATION ? await generateTTS(greetingText) : null;
-
-      return {
-        response: greetingText,
-        animationRequest: {
-          say: greetingText,
-          animationDescription: "Hand waving ( hello )",
-          reason: "Greeting the user with a friendly wave animation",
-        },
-        audioUrl: audioUrl || undefined,
-      };
-    }
     // Create the system message with animation tools
     const systemMessage = {
       role: "system" as const,
