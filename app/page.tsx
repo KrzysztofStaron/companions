@@ -803,26 +803,56 @@ export default function Home() {
           saturation={0.5}
           shadowIntensity={0.1}
         >
-          <input
-            type="text"
-            placeholder={
-              !animationSystemReady
-                ? "Loading animation system..."
-                : isLoading
-                ? "AI is thinking..."
-                : "Chat with AI to see animations..."
-            }
-            value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
-            onKeyPress={e => {
-              if (e.key === "Enter") {
-                handleInputSubmit();
+          <div className="flex items-center">
+            <input
+              type="text"
+              placeholder={
+                !animationSystemReady
+                  ? "Loading animation system..."
+                  : isLoading
+                  ? "AI is thinking..."
+                  : "Chat with AI to see animations..."
               }
-            }}
-            disabled={isLoading || !animationSystemReady}
-            className="w-full px-6 py-4 bg-transparent border-none outline-none
-                     text-white placeholder-white/60 text-lg disabled:opacity-50"
-          />
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyPress={e => {
+                if (e.key === "Enter") {
+                  handleInputSubmit();
+                }
+              }}
+              disabled={isLoading || !animationSystemReady}
+              className="flex-1 px-6 py-4 bg-transparent border-none outline-none
+                       text-white placeholder-white/60 text-lg disabled:opacity-50"
+            />
+            <button
+              onClick={handleInputSubmit}
+              disabled={isLoading || !animationSystemReady || !inputValue.trim()}
+              className={`
+                ml-3 p-2 rounded-full transition-all duration-200
+                ${
+                  isLoading || !animationSystemReady || !inputValue.trim()
+                    ? "opacity-30 cursor-not-allowed"
+                    : "opacity-70 hover:opacity-100 hover:scale-105"
+                }
+              `}
+              title="Send message"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-white"
+              >
+                <path d="m22 2-7 20-4-16-4 16L2 22l20-7Z" />
+                <path d="M10.5 15.5 9 9l6 6" />
+              </svg>
+            </button>
+          </div>
         </LiquidGlass>
       </div>
     </div>
