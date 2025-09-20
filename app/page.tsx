@@ -761,7 +761,7 @@ export default function Home() {
       <SubtitleDisplay currentText={currentSubtitleText} isVisible={isSubtitleVisible} position="bottom" />
 
       {/* Subtitle Toggle Button */}
-      <div className="absolute bottom-24 right-8 z-40">
+      <div className="absolute top-8 right-8 z-40">
         <button
           onClick={() => {
             setSubtitlesEnabled(!subtitlesEnabled);
