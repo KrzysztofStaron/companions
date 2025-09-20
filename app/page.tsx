@@ -469,235 +469,205 @@ export default function Home() {
     }
   };
 
+  // Helper function to send greeting directly without input manipulation
+  const sendGreeting = async () => {
+    const greetingMessage = "hello";
+    console.log("🚀 Sending greeting directly...");
+    setHasSentGreeting(true);
+    setIsLoading(true);
+
+    try {
+      console.group("💬 Greeting");
+      console.log(`📝 Greeting message: "${greetingMessage}"`);
+      console.time("AI Response Time");
+
+      const userMessage: ChatMessage = {
+        role: "user",
+        content: greetingMessage,
+      };
+
+      // Get AI response with animation request
+      const aiResponse = await chatWithAI([userMessage], availableAnimations);
+
+      // Add AI response to chat
+      const assistantMessage: ChatMessage = {
+        role: "assistant",
+        content: aiResponse.synchronizedSpeech
+          ? aiResponse.synchronizedSpeech.segments.map(s => s.text).join(" ")
+          : aiResponse.animationRequest?.say || aiResponse.backgroundRequest?.say || aiResponse.response,
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+
+      // Handle background requests
+      if (aiResponse.backgroundRequest) {
+        console.log("🎨 Background change requested:", aiResponse.backgroundRequest);
+        setIsGeneratingBackground(true);
+        setBackgroundGenerationDescription(aiResponse.backgroundRequest.description);
+
+        try {
+          const result = await startBackgroundGeneration(aiResponse.backgroundRequest.description);
+          if (result.success && result.backgroundUrl) {
+            setCurrentBackgroundUrl(result.backgroundUrl);
+            console.log("✅ Background generation completed");
+          }
+        } catch (error) {
+          console.error("❌ Background generation failed:", error);
+        } finally {
+          setIsGeneratingBackground(false);
+          setBackgroundGenerationDescription(null);
+        }
+      }
+
+      // Handle synchronized speech
+      if (aiResponse.synchronizedSpeech && aiResponse.synchronizedSpeech.segments.length > 0) {
+        const segments = aiResponse.synchronizedSpeech.segments;
+        const urls = aiResponse.synchronizedSpeechAudioUrls || [];
+
+        console.group("🎬 Synchronized Speech Playback");
+        console.log(`📊 Playing ${segments.length} segments`);
+
+        // Play segments sequentially
+        for (let i = 0; i < segments.length; i++) {
+          const seg = segments[i];
+          const url = urls[i];
+
+          console.groupCollapsed(`🎬 Segment ${i + 1}/${segments.length}`);
+          console.log(`📝 Text: "${seg.text}"`);
+
+          // Show subtitle for this segment
+          showSubtitle(seg.text);
+
+          // Start animation for segment
+          if (seg.animation_on_start) {
+            const cfg = seg.animation_on_start;
+            console.group(`🎭 Starting Animation: ${cfg.type}`);
+            console.log(`🎯 Animation: ${cfg.name}`);
+            try {
+              let success = false;
+              if (cfg.type === "start_loop" && (window as any).startLoopByDescription) {
+                success = (window as any).startLoopByDescription(cfg.name);
+              } else if (cfg.type === "play_once" && (window as any).playOnceByDescription) {
+                success = (window as any).playOnceByDescription(cfg.name);
+              } else if (cfg.type === "emphasis" && (window as any).playOnceByDescription) {
+                success = (window as any).playOnceByDescription(cfg.name);
+              }
+              console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
+            } catch (error) {
+              console.error("❌ Animation start error:", error);
+            }
+            console.groupEnd();
+          }
+
+          // Play audio or wait based on text length
+          if (url) {
+            await new Promise<void>(resolve => {
+              const audio = new Audio(url);
+              const cleanup = () => {
+                audio.removeEventListener("ended", () => resolve());
+                audio.removeEventListener("error", () => resolve());
+              };
+              audio.addEventListener("ended", () => {
+                cleanup();
+                resolve();
+              });
+              audio.addEventListener("error", () => {
+                cleanup();
+                resolve();
+              });
+              audio.play().catch(() => resolve());
+            });
+          } else {
+            const estimatedDuration = Math.max(1000, seg.text.length * 50);
+            console.warn(`⚠️ No audio URL, using estimated duration: ${estimatedDuration}ms`);
+            await new Promise(resolve => setTimeout(resolve, estimatedDuration));
+          }
+
+          // End animation for segment
+          if (seg.animation_on_end) {
+            const cfg = seg.animation_on_end;
+            console.group(`🎭 Ending Animation: ${cfg.type}`);
+            if (cfg.name) console.log(`🎯 Animation: ${cfg.name}`);
+            try {
+              let success = false;
+              if (cfg.type === "stop_loop" && (window as any).stopLoopReturnIdle) {
+                success = (window as any).stopLoopReturnIdle();
+              } else if (cfg.type === "return_idle" && (window as any).stopLoopReturnIdle) {
+                success = (window as any).stopLoopReturnIdle();
+              } else if (cfg.type === "play_once" && cfg.name && (window as any).playOnceByDescription) {
+                success = (window as any).playOnceByDescription(cfg.name);
+              }
+              console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
+            } catch (error) {
+              console.error("❌ Animation end error:", error);
+            }
+            console.groupEnd();
+          }
+
+          console.groupEnd();
+        }
+
+        console.log("✅ Synchronized speech playback completed successfully");
+        setTimeout(() => hideSubtitle(), 1000);
+        console.groupEnd();
+      }
+      // Handle simple animation request
+      else if (aiResponse.animationRequest) {
+        console.log("🎭 Animation request:", aiResponse.animationRequest);
+        showSubtitle(aiResponse.animationRequest.say);
+
+        if ((window as any).playAnimationByDescription) {
+          const success = (window as any).playAnimationByDescription(aiResponse.animationRequest.animationDescription);
+          console.log("🎯 Animation result:", success);
+
+          if (success) {
+            const estimatedDuration = Math.max(2000, aiResponse.animationRequest.say.length * 100);
+            setTimeout(() => hideSubtitle(), estimatedDuration);
+          }
+        } else {
+          const estimatedDuration = Math.max(2000, aiResponse.animationRequest.say.length * 80);
+          setTimeout(() => hideSubtitle(), estimatedDuration);
+        }
+      }
+      // Handle simple speech
+      else {
+        const speechText = aiResponse.backgroundRequest?.say || aiResponse.response;
+        console.log("💬 Simple speech:", speechText);
+        showSubtitle(speechText);
+
+        // Play TTS audio if available
+        if (aiResponse.audioUrl) {
+          console.log("🔊 Playing TTS audio");
+          playAudio(aiResponse.audioUrl);
+        }
+
+        const estimatedDuration = Math.max(2000, speechText.length * 80);
+        setTimeout(() => hideSubtitle(), estimatedDuration);
+      }
+
+      console.timeEnd("AI Response Time");
+      console.groupEnd();
+    } catch (error) {
+      console.error("❌ Error in greeting:", error);
+    } finally {
+      setIsLoading(false);
+      setGreetingComplete(true);
+    }
+  };
+
   // Auto-greet once animations are fully ready - RUNS ONLY ONCE
   useEffect(() => {
     // Early return if already sent greeting or not ready
-    if (hasSentGreeting || !animationSystemReady || isLoading) return;
+    if (hasSentGreeting || !animationSystemReady) return;
 
     console.log("🎉 Animation system ready! Preparing to send greeting...");
 
-    // Single timeout to send greeting after everything stabilizes
-    const greetingTimer = setTimeout(async () => {
-      // Double-check we haven't sent greeting yet (race condition protection)
-      if (hasSentGreeting) {
-        console.log("Greeting already sent, skipping...");
-        return;
-      }
+    // Simple delay then call greeting function directly
+    const greetingTimer = setTimeout(() => {
+      sendGreeting();
+    }, 2000);
 
-      console.log("🚀 Sending greeting now...");
-      setHasSentGreeting(true);
-
-      // Simulate user saying "hello" through the same pipeline
-      setInputValue("hello");
-
-      // Use the existing input submit logic
-      const simulateUserInput = async () => {
-        const userInput = "hello";
-        console.group("💬 Simulated User Greeting");
-        console.log(`📝 Simulated user message: "${userInput}"`);
-        console.time("AI Response Time");
-
-        const userMessage: ChatMessage = {
-          role: "user",
-          content: userInput,
-        };
-
-        // Add user message to chat
-        setMessages([userMessage]);
-        setIsLoading(true);
-
-        try {
-          // Helper to play a segment audio URL and wait for completion
-          const playAudioAndWait = async (url: string) => {
-            try {
-              await new Promise<void>((resolve, reject) => {
-                const audio = new Audio(url);
-                const cleanup = () => {
-                  audio.removeEventListener("ended", onEnded);
-                  audio.removeEventListener("error", onError);
-                };
-                const onEnded = () => {
-                  cleanup();
-                  resolve();
-                };
-                const onError = () => {
-                  cleanup();
-                  resolve();
-                };
-                audio.addEventListener("ended", onEnded);
-                audio.addEventListener("error", onError);
-                // Start playback; if it fails, resolve and continue with estimates
-                audio.play().catch(() => resolve());
-              });
-            } catch {
-              // Ignore; will fallback to estimated delay by caller
-            }
-          };
-
-          // Get AI response with animation request
-          const aiResponse = await chatWithAI([userMessage], availableAnimations);
-
-          // Add AI response to chat - use the "say" parameter if animation/background is requested, otherwise use the response
-          const assistantMessage: ChatMessage = {
-            role: "assistant",
-            content: aiResponse.synchronizedSpeech
-              ? aiResponse.synchronizedSpeech.segments.map(s => s.text).join(" ")
-              : aiResponse.animationRequest?.say || aiResponse.backgroundRequest?.say || aiResponse.response,
-          };
-          setMessages(prev => [...prev, assistantMessage]);
-
-          // Handle background requests
-          if (aiResponse.backgroundRequest) {
-            console.log("🎨 Background change requested:", aiResponse.backgroundRequest);
-            setIsGeneratingBackground(true);
-            setBackgroundGenerationDescription(aiResponse.backgroundRequest.description);
-
-            try {
-              const backgroundUrl = await startBackgroundGeneration(aiResponse.backgroundRequest);
-              if (backgroundUrl) {
-                setCurrentBackgroundUrl(backgroundUrl);
-                console.log("✅ Background generation completed");
-              }
-            } catch (error) {
-              console.error("❌ Background generation failed:", error);
-            } finally {
-              setIsGeneratingBackground(false);
-              setBackgroundGenerationDescription(null);
-            }
-          }
-
-          // Mark greeting as completed immediately when response is ready
-          setGreetingComplete(true);
-
-          // Handle synchronized speech (advanced animation control)
-          if (aiResponse.synchronizedSpeech && aiResponse.synchronizedSpeechAudioUrls) {
-            console.log("🎬 Processing synchronized speech segments...");
-            showSubtitle(""); // Start with empty subtitle
-
-            for (let i = 0; i < aiResponse.synchronizedSpeech.segments.length; i++) {
-              const segment = aiResponse.synchronizedSpeech.segments[i];
-              const audioUrl = aiResponse.synchronizedSpeechAudioUrls[i];
-
-              console.log(`🎭 Segment ${i + 1}: "${segment.text.substring(0, 30)}..."`);
-
-              // Start animation if specified
-              if (segment.animation_on_start) {
-                console.log(
-                  `🎬 Starting animation: ${segment.animation_on_start.name} (${segment.animation_on_start.type})`
-                );
-                if (segment.animation_on_start.type === "start_loop") {
-                  (window as any).startLoopByDescription?.(segment.animation_on_start.name);
-                } else if (segment.animation_on_start.type === "play_once") {
-                  (window as any).playOnceByDescription?.(segment.animation_on_start.name);
-                } else if (segment.animation_on_start.type === "emphasis") {
-                  (window as any).playOnceByDescription?.(segment.animation_on_start.name);
-                }
-              }
-
-              // Show segment subtitle
-              showSubtitle(segment.text);
-
-              // Play segment audio and wait for completion
-              if (audioUrl) {
-                await playAudioAndWait(audioUrl);
-              } else {
-                // If no audio, wait based on text length
-                const estimatedDuration = Math.max(1000, segment.text.length * 80);
-                await new Promise(resolve => setTimeout(resolve, estimatedDuration));
-              }
-
-              // End animation if specified
-              if (segment.animation_on_end) {
-                console.log(`🎬 Ending animation: ${segment.animation_on_end.type}`);
-                if (segment.animation_on_end.type === "stop_loop") {
-                  (window as any).stopLoopReturnIdle?.();
-                } else if (segment.animation_on_end.type === "return_idle") {
-                  (window as any).stopLoopReturnIdle?.();
-                } else if (segment.animation_on_end.type === "play_once" && segment.animation_on_end.name) {
-                  (window as any).playOnceByDescription?.(segment.animation_on_end.name);
-                }
-              }
-            }
-
-            // Hide subtitle after all segments complete
-            setTimeout(() => hideSubtitle(), 1000);
-          }
-          // Handle simple animation requests
-          else if (aiResponse.animationRequest) {
-            console.log("🎭 Animation request:", aiResponse.animationRequest);
-
-            // Show subtitle with what AI is saying
-            showSubtitle(aiResponse.animationRequest.say);
-
-            // Play the requested animation
-            if ((window as any).playAnimationByDescription) {
-              const success = (window as any).playAnimationByDescription(
-                aiResponse.animationRequest.animationDescription
-              );
-              console.log("🎯 Animation result:", success);
-
-              if (success) {
-                // Hide subtitle after estimated duration
-                const estimatedDuration = Math.max(2000, aiResponse.animationRequest.say.length * 100);
-                setTimeout(() => {
-                  hideSubtitle();
-                }, estimatedDuration);
-
-                // Return to idle after animation completes
-                setTimeout(() => {
-                  if ((window as any).returnToIdle) {
-                    (window as any).returnToIdle();
-                  } else {
-                    // Fallback: find and play an idle animation manually
-                    const idleIndex = (window as any).ANIMATION_NAMES?.findIndex((name: string) =>
-                      name.toLowerCase().includes("idle")
-                    );
-                    if (idleIndex !== -1 && (window as any).playAnimation) {
-                      (window as any).playAnimation(idleIndex);
-                    }
-                  }
-                }, 5000);
-              }
-            } else {
-              // Hide subtitle even if animation fails
-              const estimatedDuration = Math.max(2000, aiResponse.animationRequest.say.length * 80);
-              setTimeout(() => {
-                hideSubtitle();
-              }, estimatedDuration);
-            }
-          } else {
-            // No animation, just show subtitle and mark complete
-            showSubtitle(aiResponse.response);
-            const estimatedDuration = Math.max(2000, aiResponse.response.length * 80);
-            setTimeout(() => {
-              hideSubtitle();
-            }, estimatedDuration);
-          }
-
-          // Play single TTS audio if not using synchronized speech
-          if (aiResponse.audioUrl && !aiResponse.synchronizedSpeech) {
-            console.log("🔊 Playing TTS audio");
-            playAudio(aiResponse.audioUrl);
-          }
-
-          console.timeEnd("AI Response Time");
-          console.groupEnd();
-        } catch (error) {
-          console.error("Error in AI response:", error);
-          setGreetingComplete(true);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      await simulateUserInput();
-    }, 2000); // Single delay for everything to stabilize
-
-    // Cleanup function to clear the timer if component unmounts
-    return () => {
-      clearTimeout(greetingTimer);
-    };
-  }, [animationSystemReady, hasSentGreeting, isLoading, availableAnimations]);
+    return () => clearTimeout(greetingTimer);
+  }, [animationSystemReady, hasSentGreeting]);
 
   return (
     <div className="relative w-full h-screen">
