@@ -891,9 +891,9 @@ export default function Home() {
               onClick={handleInputSubmit}
               disabled={isLoading || !animationSystemReady || !inputValue.trim()}
               className={`
-                p-1.5 m-0 shrink-0 transition-all duration-200
+                ${hasMultipleLines ? "p-2" : "p-3"} m-0 shrink-0 transition-all duration-200
                 ${hasMultipleLines ? "self-end" : "self-center"}
-                ${hasMultipleLines ? "mb-0" : "mr-2"}
+                ${hasMultipleLines ? "mb-0" : "mr-0.5"}
                 ${
                   isLoading || !animationSystemReady || !inputValue.trim()
                     ? "bg-transparent opacity-30 cursor-not-allowed"
@@ -906,8 +906,8 @@ export default function Home() {
               title="Send message"
             >
               <svg
-                width="16"
-                height="16"
+                width={hasMultipleLines ? "14" : "18"}
+                height={hasMultipleLines ? "14" : "18"}
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
