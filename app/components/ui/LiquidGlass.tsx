@@ -14,6 +14,7 @@ export interface LiquidGlassProps {
   elasticity?: number;
   zIndex?: number;
   className?: string;
+  justifyContent?: "start" | "center" | "end" | "between" | "around" | "evenly";
   children?: React.ReactNode;
 }
 
@@ -28,6 +29,7 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
   elasticity = 0.6,
   zIndex = 9999,
   className,
+  justifyContent = "center",
   children,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -214,7 +216,8 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
         style={{
           position: "relative",
           width: "100%",
-          height: "100%",
+          height: "auto",
+          minHeight: "100%",
           overflow: "hidden",
           borderRadius: `${borderRadius}px`,
           border: "2px solid rgba(255, 255, 255, 0.2)",
@@ -225,7 +228,7 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
           zIndex: zIndex,
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: justifyContent,
         }}
       >
         {children}

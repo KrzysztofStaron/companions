@@ -5,7 +5,7 @@ import LiquidGlass from "./components/ui/LiquidGlass";
 import AnimationStateMachine from "./components/AnimationStateMachine";
 import VoiceChat from "./components/VoiceChat";
 import SubtitleDisplay from "./components/SubtitleDisplay";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { chatWithAI, ChatMessage, AnimationRequest, SynchronizedSpeech } from "./actions/chat";
 import { BackgroundRequest, startBackgroundGeneration } from "./actions/background";
 import { getAvailableAnimationsForLLM } from "./components/animation-loader";
@@ -30,6 +30,47 @@ export default function Home() {
   const [currentBackgroundUrl, setCurrentBackgroundUrl] = useState<string | null>(null);
   const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
   const [backgroundGenerationDescription, setBackgroundGenerationDescription] = useState<string | null>(null);
+
+  // Dynamic border radius based on input lines
+  const [inputBorderRadius, setInputBorderRadius] = useState(50);
+
+  // Ref for textarea to access its dimensions
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Track current textarea height for reactive updates
+  const [textareaHeight, setTextareaHeight] = useState(40);
+
+  // Calculate border radius based on textarea height
+  const calculateBorderRadius = () => {
+    if (!textareaRef.current) return 50;
+
+    const textarea = textareaRef.current;
+    const minHeight = 40; // 2.5rem = 40px (single line)
+    const maxHeight = 128; // 8rem = 128px (max height)
+    const currentHeight = textarea.scrollHeight;
+
+    const baseRadius = 50; // Maximum radius for single line
+    const minRadius = 12; // Minimum radius for many lines
+
+    if (currentHeight <= minHeight) return baseRadius;
+
+    const progress = Math.min((currentHeight - minHeight) / (maxHeight - minHeight), 1);
+    const easedProgress = 1 - Math.pow(1 - progress, 2); // Ease out curve
+    return Math.round(baseRadius - (baseRadius - minRadius) * easedProgress);
+  };
+
+  // Determine if input has multiple lines based on height
+  const hasMultipleLines = useMemo(() => {
+    // Only switch to bottom alignment when textarea is significantly taller
+    // This prevents premature switching on first character
+    const multiLineThreshold = 50; // 50px instead of 40px
+    return textareaHeight > multiLineThreshold;
+  }, [textareaHeight]);
+
+  // Update border radius when input value changes
+  useEffect(() => {
+    setInputBorderRadius(calculateBorderRadius());
+  }, [inputValue]);
 
   // Subtitle state management
   const [currentSubtitleText, setCurrentSubtitleText] = useState("");
@@ -794,18 +835,19 @@ export default function Home() {
       </div>
 
       {/* Beautiful Liquid Glass Input - Always visible */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4">
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-full max-w-md">
         <LiquidGlass
-          borderRadius={50}
+          borderRadius={inputBorderRadius}
           blur={0.5}
           contrast={0.5}
           brightness={0.5}
           saturation={0.5}
           shadowIntensity={0.1}
+          justifyContent="start"
         >
-          <div className="flex items-center">
-            <input
-              type="text"
+          <div className={`flex w-full pl-4 mr-2 ${hasMultipleLines ? "items-end" : "items-center"}`}>
+            <textarea
+              ref={textareaRef}
               placeholder={
                 !animationSystemReady
                   ? "Loading animation system..."
@@ -815,38 +857,56 @@ export default function Home() {
               }
               value={inputValue}
               onChange={e => setInputValue(e.target.value)}
-              onKeyPress={e => {
-                if (e.key === "Enter") {
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
                   handleInputSubmit();
                 }
               }}
               disabled={isLoading || !animationSystemReady}
-              className="flex-1 px-6 py-4 bg-transparent border-none outline-none
-                       text-white placeholder-white/60 text-lg disabled:opacity-50"
+              rows={1}
+              className="flex-1 min-w-0 py-2 bg-transparent border-none outline-none
+                       text-white placeholder-white/60 text-lg disabled:opacity-50 resize-none
+                       overflow-y-auto min-h-[2.5rem] max-h-32"
+              style={{
+                height: "auto",
+                minHeight: "2.5rem",
+                borderRadius: `${inputBorderRadius}px`,
+              }}
+              onInput={e => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = "auto";
+                target.style.height = target.scrollHeight + "px";
+                // Update border radius and height based on new dimensions
+                setTextareaHeight(target.scrollHeight);
+                setInputBorderRadius(calculateBorderRadius());
+              }}
             />
             <button
               onClick={handleInputSubmit}
               disabled={isLoading || !animationSystemReady || !inputValue.trim()}
               className={`
-                ml-3 p-2 rounded-full transition-all duration-200
+                p-1.5 m-0 shrink-0 rounded-full transition-all duration-200
+                ${hasMultipleLines ? "self-end" : "self-center"}
+                ${hasMultipleLines ? "mb-2" : ""}
                 ${
                   isLoading || !animationSystemReady || !inputValue.trim()
-                    ? "opacity-30 cursor-not-allowed"
-                    : "opacity-70 hover:opacity-100 hover:scale-105"
+                    ? "bg-transparent opacity-30 cursor-not-allowed"
+                    : "bg-white/20 backdrop-blur-sm opacity-70 hover:opacity-100 hover:scale-105"
                 }
               `}
               title="Send message"
             >
               <svg
-                width="18"
-                height="18"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="text-white"
+                className="text-white m-auto"
               >
                 <path d="M22 2L11 13" />
                 <path d="m22 2-7 20-4-9-9-4 20-7z" />
