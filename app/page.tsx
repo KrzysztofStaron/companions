@@ -46,17 +46,16 @@ export default function Home() {
 
     const textarea = textareaRef.current;
     const minHeight = 40; // 2.5rem = 40px (single line)
-    const maxHeight = 128; // 8rem = 128px (max height)
+    const twoLineHeight = 60; // Approximate height for 2 lines
     const currentHeight = textarea.scrollHeight;
 
-    const baseRadius = 50; // Maximum radius for single line
-    const minRadius = 12; // Minimum radius for many lines
+    const baseRadius = 50; // Maximum radius for 1-2 lines
+    const minRadius = 12; // Minimum radius for 3+ lines
 
-    if (currentHeight <= minHeight) return baseRadius;
+    if (currentHeight <= twoLineHeight) return baseRadius;
 
-    const progress = Math.min((currentHeight - minHeight) / (maxHeight - minHeight), 1);
-    const easedProgress = 1 - Math.pow(1 - progress, 2); // Ease out curve
-    return Math.round(baseRadius - (baseRadius - minRadius) * easedProgress);
+    // Jump immediately to 4-line level when 3+ lines
+    return minRadius;
   };
 
   // Determine if input has multiple lines based on height
@@ -845,7 +844,7 @@ export default function Home() {
           shadowIntensity={0.1}
           justifyContent="start"
         >
-          <div className={`flex w-full pl-4 mr-2 ${hasMultipleLines ? "items-end" : "items-center"}`}>
+          <div className={`flex w-full pl-4 pr-2 py-2 ${hasMultipleLines ? "items-end" : "items-center"}`}>
             <textarea
               ref={textareaRef}
               placeholder={
@@ -865,13 +864,17 @@ export default function Home() {
               }}
               disabled={isLoading || !animationSystemReady}
               rows={1}
-              className="flex-1 min-w-0 py-2 bg-transparent border-none outline-none
+              className="flex-1 min-w-0 py-2 pr-2 bg-transparent border-none outline-none
                        text-white placeholder-white/60 text-lg disabled:opacity-50 resize-none
-                       overflow-y-auto min-h-[2.5rem] max-h-32"
+                       overflow-y-auto min-h-[2.5rem] max-h-32 scrollbar-hide"
               style={{
                 height: "auto",
                 minHeight: "2.5rem",
                 borderRadius: `${inputBorderRadius}px`,
+                paddingRight:
+                  textareaRef.current && textareaRef.current.scrollHeight > textareaRef.current.clientHeight
+                    ? "16px"
+                    : "8px",
               }}
               onInput={e => {
                 const target = e.target as HTMLTextAreaElement;
@@ -880,21 +883,26 @@ export default function Home() {
                 // Update border radius and height based on new dimensions
                 setTextareaHeight(target.scrollHeight);
                 setInputBorderRadius(calculateBorderRadius());
+                // Update scrollbar padding dynamically
+                target.style.paddingRight = target.scrollHeight > target.clientHeight ? "16px" : "8px";
               }}
             />
             <button
               onClick={handleInputSubmit}
               disabled={isLoading || !animationSystemReady || !inputValue.trim()}
               className={`
-                p-1.5 m-0 shrink-0 rounded-full transition-all duration-200
+                p-1.5 m-0 shrink-0 transition-all duration-200
                 ${hasMultipleLines ? "self-end" : "self-center"}
-                ${hasMultipleLines ? "mb-2" : ""}
+                ${hasMultipleLines ? "mb-0" : "mr-2"}
                 ${
                   isLoading || !animationSystemReady || !inputValue.trim()
                     ? "bg-transparent opacity-30 cursor-not-allowed"
                     : "bg-white/20 backdrop-blur-sm opacity-70 hover:opacity-100 hover:scale-105"
                 }
               `}
+              style={{
+                borderRadius: `${inputBorderRadius}px`,
+              }}
               title="Send message"
             >
               <svg
