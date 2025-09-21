@@ -18,7 +18,6 @@ export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [availableAnimations, setAvailableAnimations] = useState<string[]>([]);
   const [animationSystemReady, setAnimationSystemReady] = useState(false);
   const [isInIdleState, setIsInIdleState] = useState(false);
   const [idleCycleTimer, setIdleCycleTimer] = useState<NodeJS.Timeout | null>(null);
@@ -94,11 +93,54 @@ export default function Home() {
   };
 
   // Get available animations for the LLM
+  const [availableAnimations, setAvailableAnimations] = useState<string[]>([]);
+
+  useEffect(() => {
+    setAvailableAnimations(getAvailableAnimationsForLLM());
+  }, []);
+
+  // Get available animations for the LLM
   useEffect(() => {
     setAvailableAnimations(getAvailableAnimationsForLLM());
   }, []);
 
   // No longer using the global background state polling - managing state locally for better control
+
+  // Wait for animation system to be ready
+  useEffect(() => {
+    console.group("🎮 Animation System Initialization");
+
+    const checkAnimationSystem = () => {
+      const systemState = {
+        playAnimationByDescription: !!(window as any).playAnimationByDescription,
+        ANIMATION_NAMES: !!(window as any).ANIMATION_NAMES,
+        playAnimation: !!(window as any).playAnimation,
+        startLoopByDescription: !!(window as any).startLoopByDescription,
+        stopLoopReturnIdle: !!(window as any).stopLoopReturnIdle,
+        playOnceByDescription: !!(window as any).playOnceByDescription,
+      };
+
+      console.table([
+        {
+          "Core Functions": systemState.playAnimationByDescription ? "✅" : "❌",
+          "Animation Names": systemState.ANIMATION_NAMES ? "✅" : "❌",
+          "Loop Control": systemState.startLoopByDescription ? "✅" : "❌",
+          "Stop/Idle": systemState.stopLoopReturnIdle ? "✅" : "❌",
+          "Play Once": systemState.playOnceByDescription ? "✅" : "❌",
+        },
+      ]);
+
+      if (Object.values(systemState).every(Boolean)) {
+        console.log("✅ Animation system ready - all functions loaded");
+        console.groupEnd();
+        setAnimationSystemReady(true);
+      } else {
+        console.log("⏳ Waiting for animation system...");
+        setTimeout(checkAnimationSystem, 100);
+      }
+    };
+    checkAnimationSystem();
+  }, []);
 
   // Handler for animation state changes
   const handleAnimationStateChange = (state: any) => {
@@ -174,42 +216,6 @@ export default function Home() {
       }, estimatedDuration);
     }
   };
-
-  // Wait for animation system to be ready
-  useEffect(() => {
-    console.group("🎮 Animation System Initialization");
-
-    const checkAnimationSystem = () => {
-      const systemState = {
-        playAnimationByDescription: !!(window as any).playAnimationByDescription,
-        ANIMATION_NAMES: !!(window as any).ANIMATION_NAMES,
-        playAnimation: !!(window as any).playAnimation,
-        startLoopByDescription: !!(window as any).startLoopByDescription,
-        stopLoopReturnIdle: !!(window as any).stopLoopReturnIdle,
-        playOnceByDescription: !!(window as any).playOnceByDescription,
-      };
-
-      console.table([
-        {
-          "Core Functions": systemState.playAnimationByDescription ? "✅" : "❌",
-          "Animation Names": systemState.ANIMATION_NAMES ? "✅" : "❌",
-          "Loop Control": systemState.startLoopByDescription ? "✅" : "❌",
-          "Stop/Idle": systemState.stopLoopReturnIdle ? "✅" : "❌",
-          "Play Once": systemState.playOnceByDescription ? "✅" : "❌",
-        },
-      ]);
-
-      if (Object.values(systemState).every(Boolean)) {
-        console.log("✅ Animation system ready - all functions loaded");
-        console.groupEnd();
-        setAnimationSystemReady(true);
-      } else {
-        console.log("⏳ Waiting for animation system...");
-        setTimeout(checkAnimationSystem, 100);
-      }
-    };
-    checkAnimationSystem();
-  }, []);
 
   // Check if voice chat is supported
   useEffect(() => {
@@ -361,11 +367,9 @@ export default function Home() {
                   console.log(`🎯 Animation: ${cfg.name}`);
                   try {
                     let success = false;
-                    if (cfg.type === "start_loop" && (window as any).startLoopByDescription) {
+                    if (cfg.type === "start_loop") {
                       success = (window as any).startLoopByDescription(cfg.name);
-                    } else if (cfg.type === "play_once" && (window as any).playOnceByDescription) {
-                      success = (window as any).playOnceByDescription(cfg.name);
-                    } else if (cfg.type === "emphasis" && (window as any).playOnceByDescription) {
+                    } else if (cfg.type === "play_once" || cfg.type === "emphasis") {
                       success = (window as any).playOnceByDescription(cfg.name);
                     }
                     console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
@@ -400,11 +404,9 @@ export default function Home() {
                   if (cfg.name) console.log(`🎯 Animation: ${cfg.name}`);
                   try {
                     let success = false;
-                    if (cfg.type === "stop_loop" && (window as any).stopLoopReturnIdle) {
+                    if (cfg.type === "stop_loop" || cfg.type === "return_idle") {
                       success = (window as any).stopLoopReturnIdle();
-                    } else if (cfg.type === "return_idle" && (window as any).stopLoopReturnIdle) {
-                      success = (window as any).stopLoopReturnIdle();
-                    } else if (cfg.type === "play_once" && cfg.name && (window as any).playOnceByDescription) {
+                    } else if (cfg.type === "play_once" && cfg.name) {
                       success = (window as any).playOnceByDescription(cfg.name);
                     }
                     console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
@@ -584,11 +586,9 @@ export default function Home() {
             console.log(`🎯 Animation: ${cfg.name}`);
             try {
               let success = false;
-              if (cfg.type === "start_loop" && (window as any).startLoopByDescription) {
+              if (cfg.type === "start_loop") {
                 success = (window as any).startLoopByDescription(cfg.name);
-              } else if (cfg.type === "play_once" && (window as any).playOnceByDescription) {
-                success = (window as any).playOnceByDescription(cfg.name);
-              } else if (cfg.type === "emphasis" && (window as any).playOnceByDescription) {
+              } else if (cfg.type === "play_once" || cfg.type === "emphasis") {
                 success = (window as any).playOnceByDescription(cfg.name);
               }
               console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
@@ -629,11 +629,9 @@ export default function Home() {
             if (cfg.name) console.log(`🎯 Animation: ${cfg.name}`);
             try {
               let success = false;
-              if (cfg.type === "stop_loop" && (window as any).stopLoopReturnIdle) {
+              if (cfg.type === "stop_loop" || cfg.type === "return_idle") {
                 success = (window as any).stopLoopReturnIdle();
-              } else if (cfg.type === "return_idle" && (window as any).stopLoopReturnIdle) {
-                success = (window as any).stopLoopReturnIdle();
-              } else if (cfg.type === "play_once" && cfg.name && (window as any).playOnceByDescription) {
+              } else if (cfg.type === "play_once" && cfg.name) {
                 success = (window as any).playOnceByDescription(cfg.name);
               }
               console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
