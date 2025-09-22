@@ -119,11 +119,17 @@ export default function VoiceChat({
     try {
       const aiResponse = await chatWithAI([userMessage], availableAnimations);
 
-      const assistantMessage: ChatMessage = {
+      // Use the assistant message with tool calls if provided, otherwise create basic one
+      const assistantMessage: ChatMessage = aiResponse.assistantMessage || {
         role: "assistant",
         content: aiResponse.animationRequest?.say || aiResponse.response,
       };
       onMessage(assistantMessage);
+
+      // Add tool result messages if present
+      if (aiResponse.toolMessages && aiResponse.toolMessages.length > 0) {
+        aiResponse.toolMessages.forEach(toolMessage => onMessage(toolMessage));
+      }
 
       if (aiResponse.animationRequest) {
         onAnimationRequest(aiResponse.animationRequest);

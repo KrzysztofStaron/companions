@@ -381,14 +381,20 @@ export default function Home() {
         // Get AI response with animation request
         const aiResponse = await chatWithAI([...messages, userMessage], availableAnimations);
 
-        // Add AI response to chat - use the "say" parameter if animation/background is requested, otherwise use the response
-        const assistantMessage: ChatMessage = {
+        // Use the assistant message with tool calls if provided, otherwise create basic one
+        const assistantMessage: ChatMessage = aiResponse.assistantMessage || {
           role: "assistant",
           content: aiResponse.synchronizedSpeech
             ? aiResponse.synchronizedSpeech.segments.map(s => s.text).join(" ")
             : aiResponse.animationRequest?.say || aiResponse.backgroundRequest?.say || aiResponse.response,
         };
-        setMessages(prev => [...prev, assistantMessage]);
+
+        // Add assistant message and tool messages to history
+        const newMessages = [...messages, userMessage, assistantMessage];
+        if (aiResponse.toolMessages && aiResponse.toolMessages.length > 0) {
+          newMessages.push(...aiResponse.toolMessages);
+        }
+        setMessages(newMessages);
 
         // Handle background request if present
         if (aiResponse.backgroundRequest) {

@@ -43,12 +43,21 @@ export default function ChatInterface({ availableAnimations, onAnimationRequest,
       // Get AI response
       const aiResponse = await chatWithAI([...messages, userMessage], availableAnimations);
 
-      // Add AI response
-      const assistantMessage: ChatMessage = {
+      // Use the assistant message with tool calls if provided, otherwise create basic one
+      const assistantMessage: ChatMessage = aiResponse.assistantMessage || {
         role: "assistant",
         content: aiResponse.response,
       };
-      setMessages(prev => [...prev, assistantMessage]);
+
+      // Add assistant message to history
+      const newMessages = [...messages, userMessage, assistantMessage];
+
+      // Add tool result messages if present
+      if (aiResponse.toolMessages && aiResponse.toolMessages.length > 0) {
+        newMessages.push(...aiResponse.toolMessages);
+      }
+
+      setMessages(newMessages);
 
       // Handle animation request if present
       if (aiResponse.animationRequest) {
@@ -79,17 +88,33 @@ export default function ChatInterface({ availableAnimations, onAnimationRequest,
           <div className="text-white/60 text-center py-4">Start a conversation with your AI companion...</div>
         )}
 
-        {messages.map((message, index) => (
-          <div key={index} className={`mb-3 ${message.role === "user" ? "text-right" : "text-left"}`}>
-            <div
-              className={`inline-block max-w-xs px-3 py-2 rounded-lg ${
-                message.role === "user" ? "bg-blue-600 text-white" : "bg-white/20 text-white"
-              }`}
-            >
-              {message.content}
+        {messages.map((message, index) => {
+          // Skip tool messages from display - they're for model context only
+          if (message.role === "tool") {
+            return null;
+          }
+
+          return (
+            <div key={index} className={`mb-3 ${message.role === "user" ? "text-right" : "text-left"}`}>
+              <div
+                className={`inline-block max-w-xs px-3 py-2 rounded-lg ${
+                  message.role === "user" ? "bg-blue-600 text-white" : "bg-white/20 text-white"
+                }`}
+              >
+                {message.content}
+
+                {/* Show tool calls if present (for debugging) */}
+                {message.tool_calls && message.tool_calls.length > 0 && (
+                  <div className="mt-2 text-xs opacity-70">
+                    <div className="border-t border-white/20 pt-1">
+                      Tools used: {message.tool_calls.map(tc => tc.function.name).join(", ")}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {isLoading && (
           <div className="text-left">

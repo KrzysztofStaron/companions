@@ -250,9 +250,26 @@ const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
 });
 
-export interface ChatMessage {
-  role: "user" | "assistant" | "system";
+export interface ToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface ToolCallResult {
+  tool_call_id: string;
+  role: "tool";
   content: string;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant" | "system" | "tool";
+  content: string;
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
 }
 
 export interface AnimationRequest {
@@ -324,6 +341,8 @@ export async function chatWithAI(
   audioStream?: ReadableStream<Uint8Array>;
   synchronizedSpeech?: SynchronizedSpeech;
   synchronizedSpeechAudioStreams?: ReadableStream<Uint8Array>[];
+  assistantMessage?: ChatMessage;
+  toolMessages?: ChatMessage[];
 }> {
   try {
     // Create the system message with animation tools
@@ -369,12 +388,30 @@ export async function chatWithAI(
     let synchronizedSpeech: SynchronizedSpeech | undefined;
     let synchronizedSpeechAudioStreams: ReadableStream<Uint8Array>[] | undefined;
 
+    // Prepare assistant message with tool calls for history
+    const assistantMessage: ChatMessage = {
+      role: "assistant",
+      content: message.content || "",
+      tool_calls: message.tool_calls?.map((tc: any) => ({
+        id: tc.id,
+        type: tc.type,
+        function: {
+          name: tc.function.name,
+          arguments: tc.function.arguments,
+        },
+      })),
+    };
+
+    // Prepare tool result messages for history
+    const toolMessages: ChatMessage[] = [];
+
     // Check if the AI wants to use tools
     if (message.tool_calls && message.tool_calls.length > 0) {
       for (const toolCall of message.tool_calls) {
         if (toolCall.type === "function") {
           try {
             const args = JSON.parse(toolCall.function.arguments);
+            let toolResult = "";
 
             if (toolCall.function.name === "request_animation") {
               animationRequest = {
@@ -382,6 +419,7 @@ export async function chatWithAI(
                 animationDescription: args.animationDescription,
                 reason: args.reason,
               };
+              toolResult = `Animation triggered: ${args.animationDescription}. Saying: "${args.say}"`;
               console.log("🎭 Animation request:", animationRequest);
             } else if (toolCall.function.name === "change_background") {
               // Store background request - client will handle generation
@@ -390,6 +428,7 @@ export async function chatWithAI(
                 reason: args.reason,
                 say: args.say,
               };
+              toolResult = `Background changed to: ${args.description}. Saying: "${args.say}"`;
               console.log("🎨 Background change requested:", backgroundRequest);
             } else if (toolCall.function.name === "speak_with_synchronized_animation") {
               if (Array.isArray(args.speech_segments)) {
@@ -399,6 +438,7 @@ export async function chatWithAI(
                   animation_on_end: seg.animation_on_end ?? null,
                 }));
                 synchronizedSpeech = { segments };
+                toolResult = `Synchronized speech with ${segments.length} segments and coordinated animations.`;
                 console.log("🎬 Synchronized speech request:", {
                   segmentCount: segments.length,
                   segments: segments.map((seg, i) => ({
@@ -410,8 +450,23 @@ export async function chatWithAI(
                 });
               }
             }
+
+            // Add tool result message to history
+            if (toolResult) {
+              toolMessages.push({
+                role: "tool",
+                content: toolResult,
+                tool_call_id: toolCall.id,
+              });
+            }
           } catch (error) {
             console.error(`Error parsing ${toolCall.function.name} request:`, error);
+            // Add error result to tool messages
+            toolMessages.push({
+              role: "tool",
+              content: `Error executing ${toolCall.function.name}: ${error}`,
+              tool_call_id: toolCall.id,
+            });
           }
         }
       }
@@ -446,6 +501,8 @@ export async function chatWithAI(
       audioStream: audioStream || undefined,
       synchronizedSpeech,
       synchronizedSpeechAudioStreams,
+      assistantMessage,
+      toolMessages: toolMessages.length > 0 ? toolMessages : undefined,
     };
 
     console.log("✅ Final AI response structure:", {
@@ -457,6 +514,9 @@ export async function chatWithAI(
       synchronizedSegments: finalResponse.synchronizedSpeech?.segments.length || 0,
       hasSegmentAudioStreams: !!finalResponse.synchronizedSpeechAudioStreams,
       segmentAudioStreamsCount: finalResponse.synchronizedSpeechAudioStreams?.length || 0,
+      hasAssistantMessage: !!finalResponse.assistantMessage,
+      hasToolMessages: !!finalResponse.toolMessages,
+      toolMessagesCount: finalResponse.toolMessages?.length || 0,
     });
 
     return finalResponse;
