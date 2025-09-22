@@ -130,9 +130,9 @@ export default function VoiceChat({
       }
 
       // Play TTS audio if available
-      if (aiResponse.audioUrl) {
-        console.log("🔊 Playing TTS audio");
-        playAudio(aiResponse.audioUrl);
+      if (aiResponse.audioStream) {
+        console.log("🔊 Playing TTS audio stream");
+        playAudio(aiResponse.audioStream);
       }
     } catch (error) {
       console.error("🎤 Error in voice chat:", error);

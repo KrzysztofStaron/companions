@@ -5,7 +5,7 @@ import { useState, useEffect, createContext, useContext } from "react";
 interface AudioPermissionContextType {
   hasAudioPermission: boolean;
   requestAudioPermission: () => Promise<boolean>;
-  playAudio: (audioUrl: string) => Promise<boolean>;
+  playAudio: (audioUrlOrStream: string | ReadableStream<Uint8Array>) => Promise<boolean>;
 }
 
 const AudioPermissionContext = createContext<AudioPermissionContextType | null>(null);
@@ -25,7 +25,7 @@ interface AudioPermissionProviderProps {
 export function AudioPermissionProvider({ children }: AudioPermissionProviderProps) {
   const [hasAudioPermission, setHasAudioPermission] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
-  const [pendingAudio, setPendingAudio] = useState<string | null>(null);
+  const [pendingAudio, setPendingAudio] = useState<string | ReadableStream<Uint8Array> | null>(null);
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
 
   // Check if audio permission was previously granted or skipped
@@ -61,7 +61,7 @@ export function AudioPermissionProvider({ children }: AudioPermissionProviderPro
       // Play any pending audio
       if (pendingAudio) {
         try {
-          await playAudioInternal(pendingAudio);
+          await playAudioInternal(pendingAudio as string | ReadableStream<Uint8Array>);
           setPendingAudio(null);
         } catch (error) {
           console.warn("Failed to play pending audio:", error);
@@ -74,34 +74,77 @@ export function AudioPermissionProvider({ children }: AudioPermissionProviderPro
     }
   };
 
-  const playAudioInternal = async (audioUrl: string): Promise<boolean> => {
+  const playAudioInternal = async (audioUrlOrStream: string | ReadableStream<Uint8Array>): Promise<boolean> => {
     try {
-      const audio = new Audio(audioUrl);
-      await audio.play();
-      return true;
+      if (typeof audioUrlOrStream === "string") {
+        // Handle URL case
+        const audio = new Audio(audioUrlOrStream);
+        await audio.play();
+        return true;
+      } else {
+        // Handle stream case
+        return await playStream(audioUrlOrStream);
+      }
     } catch (error) {
       console.error("Failed to play audio:", error);
       return false;
     }
   };
 
-  const playAudio = async (audioUrl: string): Promise<boolean> => {
+  const playStream = async (stream: ReadableStream<Uint8Array>): Promise<boolean> => {
+    try {
+      const audioContext = new AudioContext();
+      const reader = stream.getReader();
+
+      // Create a buffer to accumulate chunks
+      const chunks: Uint8Array[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+
+      // Concatenate all chunks
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const audioBuffer = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        audioBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      // Decode and play the audio
+      const buffer = await audioContext.decodeAudioData(audioBuffer.buffer.slice());
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      source.start();
+
+      return true;
+    } catch (error) {
+      console.error("Failed to play audio stream:", error);
+      return false;
+    }
+  };
+
+  const playAudio = async (audioUrlOrStream: string | ReadableStream<Uint8Array>): Promise<boolean> => {
     if (hasAudioPermission) {
       try {
-        return await playAudioInternal(audioUrl);
+        return await playAudioInternal(audioUrlOrStream);
       } catch (error) {
         console.warn("Audio playback failed, likely due to autoplay policy:", error);
         // If audio fails and we haven't asked for permission yet, show modal
         const savedPermission = localStorage.getItem("audioPermissionGranted");
         if (savedPermission !== "true") {
-          setPendingAudio(audioUrl);
+          setPendingAudio(audioUrlOrStream);
           setShowPermissionModal(true);
         }
         return false;
       }
     } else {
       // Store the audio for later playback after permission is granted
-      setPendingAudio(audioUrl);
+      setPendingAudio(audioUrlOrStream);
       setShowPermissionModal(true);
       return false;
     }

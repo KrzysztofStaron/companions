@@ -56,8 +56,8 @@ export default function ChatInterface({ availableAnimations, onAnimationRequest,
       }
 
       // Handle audio if present
-      if (aiResponse.audioUrl) {
-        playAudio(aiResponse.audioUrl);
+      if (aiResponse.audioStream) {
+        playAudio(aiResponse.audioStream);
       }
     } catch (error) {
       console.error("Error in chat:", error);

@@ -262,31 +262,112 @@ export default function Home() {
       setIsLoading(true);
 
       try {
-        // Helper to play a segment audio URL and wait for completion
-        const playAudioAndWait = async (url: string) => {
+        // Helper to wait for first chunk from stream and show subtitle
+        const waitForFirstChunkAndShowSubtitle = async (
+          stream: ReadableStream<Uint8Array>,
+          text: string
+        ): Promise<ReadableStream<Uint8Array>> => {
+          const reader = stream.getReader();
+          const chunks: Uint8Array[] = [];
+
+          // Read the first chunk
+          const firstResult = await reader.read();
+          if (firstResult.done) {
+            throw new Error("Stream ended before first chunk");
+          }
+
+          // Show subtitle when first chunk arrives
+          showSubtitle(text);
+
+          // Collect all remaining chunks
+          chunks.push(firstResult.value);
+          while (true) {
+            const result = await reader.read();
+            if (result.done) break;
+            chunks.push(result.value);
+          }
+
+          // Create a new stream with all chunks
+          return new ReadableStream({
+            start(controller) {
+              for (const chunk of chunks) {
+                controller.enqueue(chunk);
+              }
+              controller.close();
+            },
+          });
+        };
+
+        // Helper to play a segment audio URL or stream and wait for completion
+        const playAudioAndWait = async (audio: string | ReadableStream<Uint8Array>) => {
           try {
-            await new Promise<void>((resolve, reject) => {
-              const audio = new Audio(url);
-              const cleanup = () => {
-                audio.removeEventListener("ended", onEnded);
-                audio.removeEventListener("error", onError);
-              };
-              const onEnded = () => {
-                cleanup();
-                resolve();
-              };
-              const onError = () => {
-                cleanup();
-                resolve();
-              };
-              audio.addEventListener("ended", onEnded);
-              audio.addEventListener("error", onError);
-              // Start playback; if it fails, resolve and continue with estimates
-              audio.play().catch(() => resolve());
-            });
+            if (typeof audio === "string") {
+              // Handle URL case
+              await new Promise<void>((resolve, reject) => {
+                const audioElement = new Audio(audio);
+                const cleanup = () => {
+                  audioElement.removeEventListener("ended", onEnded);
+                  audioElement.removeEventListener("error", onError);
+                };
+                const onEnded = () => {
+                  cleanup();
+                  resolve();
+                };
+                const onError = () => {
+                  cleanup();
+                  resolve();
+                };
+                audioElement.addEventListener("ended", onEnded);
+                audioElement.addEventListener("error", onError);
+                // Start playback; if it fails, resolve and continue with estimates
+                audioElement.play().catch(() => resolve());
+              });
+            } else {
+              // Handle stream case
+              await playStreamAndWait(audio);
+            }
           } catch {
             // Ignore; will fallback to estimated delay by caller
           }
+        };
+
+        const playStreamAndWait = async (stream: ReadableStream<Uint8Array>): Promise<void> => {
+          return new Promise((resolve, reject) => {
+            const audioContext = new AudioContext();
+            const reader = stream.getReader();
+            const chunks: Uint8Array[] = [];
+
+            const processStream = async () => {
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) {
+                    // All chunks received, decode and play
+                    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+                    const audioBuffer = new Uint8Array(totalLength);
+                    let offset = 0;
+                    for (const chunk of chunks) {
+                      audioBuffer.set(chunk, offset);
+                      offset += chunk.length;
+                    }
+
+                    const buffer = await audioContext.decodeAudioData(audioBuffer.buffer.slice());
+                    const source = audioContext.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(audioContext.destination);
+                    source.onended = () => resolve();
+                    source.start();
+                    break;
+                  }
+                  chunks.push(value);
+                }
+              } catch (error) {
+                reject(error);
+              }
+            };
+
+            processStream();
+          });
         };
         // Get AI response with animation request
         const aiResponse = await chatWithAI([...messages, userMessage], availableAnimations);
@@ -334,7 +415,7 @@ export default function Home() {
         // Handle synchronized speech if present
         if (aiResponse.synchronizedSpeech && aiResponse.synchronizedSpeech.segments.length > 0) {
           const segments = aiResponse.synchronizedSpeech.segments;
-          const urls = aiResponse.synchronizedSpeechAudioUrls || [];
+          const streams = aiResponse.synchronizedSpeechAudioStreams || [];
 
           console.group("🎬 Synchronized Speech Playback");
           console.log(`📊 Starting playback of ${segments.length} segments`);
@@ -344,7 +425,7 @@ export default function Home() {
               Text: seg.text.substring(0, 40) + (seg.text.length > 40 ? "..." : ""),
               "Start Anim": seg.animation_on_start ? `${seg.animation_on_start.type}` : "❌",
               "End Anim": seg.animation_on_end ? `${seg.animation_on_end.type}` : "❌",
-              "Has Audio": urls[i] ? "✅" : "❌",
+              "Has Audio": streams[i] ? "✅" : "❌",
             }))
           );
 
@@ -357,45 +438,76 @@ export default function Home() {
                 console.groupCollapsed(`🎬 Segment ${i + 1}/${segments.length}`);
                 console.log(`📝 Text: "${seg.text}"`);
 
-                // Show subtitle for this segment
-                showSubtitle(seg.text);
-
-                // Start animation for segment
-                if (seg.animation_on_start) {
-                  const cfg = seg.animation_on_start;
-                  console.group(`🎭 Starting Animation: ${cfg.type}`);
-                  console.log(`🎯 Animation: ${cfg.name}`);
+                // Handle audio stream with first chunk detection
+                const stream = streams[i];
+                if (stream) {
                   try {
-                    let success = false;
-                    if (cfg.type === "start_loop") {
-                      success = (window as any).startLoopByDescription(cfg.name);
-                    } else if (cfg.type === "play_once" || cfg.type === "emphasis") {
-                      success = (window as any).playOnceByDescription(cfg.name);
-                    }
-                    console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
-                  } catch (error) {
-                    console.error("❌ Animation start error:", error);
-                  }
-                  console.groupEnd();
-                }
+                    // Wait for first chunk and get the new stream
+                    const audioStream = await waitForFirstChunkAndShowSubtitle(stream, seg.text);
 
-                // Play audio for this segment
-                const url = urls[i];
-                console.group("🔊 Audio Playback");
-                if (url) {
-                  console.time(`Audio Segment ${i + 1}`);
-                  console.log("🎵 Playing audio...");
-                  await playAudioAndWait(url);
-                  console.timeEnd(`Audio Segment ${i + 1}`);
+                    // Start animation for segment
+                    if (seg.animation_on_start) {
+                      const cfg = seg.animation_on_start;
+                      console.group(`🎭 Starting Animation: ${cfg.type}`);
+                      console.log(`🎯 Animation: ${cfg.name}`);
+                      try {
+                        let success = false;
+                        if (cfg.type === "start_loop") {
+                          success = (window as any).startLoopByDescription(cfg.name);
+                        } else if (cfg.type === "play_once" || cfg.type === "emphasis") {
+                          success = (window as any).playOnceByDescription(cfg.name);
+                        }
+                        console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
+                      } catch (error) {
+                        console.error("❌ Animation start error:", error);
+                      }
+                      console.groupEnd();
+                    }
+
+                    // Play audio using the new stream
+                    console.group("🔊 Audio Playback");
+                    console.time(`Audio Segment ${i + 1}`);
+                    console.log("🎵 Playing audio stream...");
+                    await playAudioAndWait(audioStream);
+                    console.timeEnd(`Audio Segment ${i + 1}`);
+                    console.groupEnd();
+                  } catch (error) {
+                    console.error("❌ Error processing segment:", error);
+                    // Fallback: show subtitle immediately
+                    showSubtitle(seg.text);
+                  }
                 } else {
-                  // Fallback: estimate timing if no URL
-                  const estimatedDuration = Math.max(1000, segments[i].text.length * 50);
-                  console.warn(`⚠️ No audio URL, using estimated duration: ${estimatedDuration}ms`);
+                  // No audio stream, show subtitle immediately
+                  showSubtitle(seg.text);
+
+                  // Start animation for segment
+                  if (seg.animation_on_start) {
+                    const cfg = seg.animation_on_start;
+                    console.group(`🎭 Starting Animation: ${cfg.type}`);
+                    console.log(`🎯 Animation: ${cfg.name}`);
+                    try {
+                      let success = false;
+                      if (cfg.type === "start_loop") {
+                        success = (window as any).startLoopByDescription(cfg.name);
+                      } else if (cfg.type === "play_once" || cfg.type === "emphasis") {
+                        success = (window as any).playOnceByDescription(cfg.name);
+                      }
+                      console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
+                    } catch (error) {
+                      console.error("❌ Animation start error:", error);
+                    }
+                    console.groupEnd();
+                  }
+
+                  // Fallback: estimate timing if no stream
+                  const estimatedDuration = Math.max(1000, seg.text.length * 50);
+                  console.warn(`⚠️ No audio stream, using estimated duration: ${estimatedDuration}ms`);
+                  console.group("🔊 Audio Playback");
                   console.time(`Estimated Wait ${i + 1}`);
                   await new Promise(res => setTimeout(res, estimatedDuration));
                   console.timeEnd(`Estimated Wait ${i + 1}`);
+                  console.groupEnd();
                 }
-                console.groupEnd();
 
                 // End animation for segment
                 if (seg.animation_on_end) {
@@ -438,8 +550,7 @@ export default function Home() {
           console.log("🎭 AI requested animation:", aiResponse.animationRequest);
           console.log("💬 AI says:", aiResponse.animationRequest.say);
 
-          // Show subtitle for simple speech
-          showSubtitle(aiResponse.animationRequest.say);
+          // Note: Subtitle will be shown when first audio chunk arrives
 
           // Use the global playAnimationByDescription function
           if ((window as any).playAnimationByDescription) {
@@ -460,6 +571,7 @@ export default function Home() {
         }
 
         // Handle simple speech without animation (background requests, etc.)
+        // Note: Subtitle will be shown when first audio chunk arrives
         if (
           !aiResponse.synchronizedSpeech &&
           !aiResponse.animationRequest &&
@@ -467,18 +579,32 @@ export default function Home() {
         ) {
           const speechText = aiResponse.backgroundRequest?.say || aiResponse.response;
           console.log("💬 Simple speech:", speechText);
-          showSubtitle(speechText);
         }
 
-        // Play TTS audio if available
-        if (aiResponse.audioUrl) {
-          console.log("🔊 Playing TTS audio");
-          playAudio(aiResponse.audioUrl);
+        // Play TTS audio if available with first chunk detection
+        if (aiResponse.audioStream) {
+          console.log("🔊 Playing TTS audio with first chunk detection");
+
+          // Get the text for subtitle
+          const speechText =
+            aiResponse.animationRequest?.say || aiResponse.backgroundRequest?.say || aiResponse.response;
+
+          // Wait for first chunk before showing subtitle
+          waitForFirstChunkAndShowSubtitle(aiResponse.audioStream, speechText)
+            .then(audioStream => {
+              // Now play the audio
+              playAudio(audioStream);
+            })
+            .catch(error => {
+              console.error("❌ Error waiting for first chunk:", error);
+              // Fallback: show subtitle immediately
+              if (speechText) {
+                showSubtitle(speechText);
+              }
+            });
 
           // Estimate subtitle duration based on text length for simple speech
-          if (!aiResponse.synchronizedSpeech) {
-            const speechText =
-              aiResponse.animationRequest?.say || aiResponse.backgroundRequest?.say || aiResponse.response;
+          if (!aiResponse.synchronizedSpeech && speechText) {
             const estimatedDuration = Math.max(2000, speechText.length * 100); // ~100ms per character
             setTimeout(() => {
               hideSubtitle();
@@ -528,8 +654,84 @@ export default function Home() {
         content: greetingMessage,
       };
 
+      // Helper to wait for first chunk from stream and show subtitle
+      const waitForFirstChunkAndShowSubtitle = async (
+        stream: ReadableStream<Uint8Array>,
+        text: string
+      ): Promise<ReadableStream<Uint8Array>> => {
+        const reader = stream.getReader();
+        const chunks: Uint8Array[] = [];
+
+        // Read the first chunk
+        const firstResult = await reader.read();
+        if (firstResult.done) {
+          throw new Error("Stream ended before first chunk");
+        }
+
+        // Show subtitle when first chunk arrives
+        showSubtitle(text);
+
+        // Collect all remaining chunks
+        chunks.push(firstResult.value);
+        while (true) {
+          const result = await reader.read();
+          if (result.done) break;
+          chunks.push(result.value);
+        }
+
+        // Create a new stream with all chunks
+        return new ReadableStream({
+          start(controller) {
+            for (const chunk of chunks) {
+              controller.enqueue(chunk);
+            }
+            controller.close();
+          },
+        });
+      };
+
+      // Helper to play audio stream and wait for completion
+      const playStreamAndWait = async (stream: ReadableStream<Uint8Array>): Promise<void> => {
+        return new Promise((resolve, reject) => {
+          const audioContext = new AudioContext();
+          const reader = stream.getReader();
+          const chunks: Uint8Array[] = [];
+
+          const processStream = async () => {
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                  // All chunks received, decode and play
+                  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+                  const audioBuffer = new Uint8Array(totalLength);
+                  let offset = 0;
+                  for (const chunk of chunks) {
+                    audioBuffer.set(chunk, offset);
+                    offset += chunk.length;
+                  }
+
+                  const buffer = await audioContext.decodeAudioData(audioBuffer.buffer.slice());
+                  const source = audioContext.createBufferSource();
+                  source.buffer = buffer;
+                  source.connect(audioContext.destination);
+                  source.onended = () => resolve();
+                  source.start();
+                  break;
+                }
+                chunks.push(value);
+              }
+            } catch (error) {
+              reject(error);
+            }
+          };
+
+          processStream();
+        });
+      };
+
       // Get AI response with animation request
-      const aiResponse = await chatWithAI([userMessage], availableAnimations, true);
+      const aiResponse = await chatWithAI([userMessage], availableAnimations);
 
       // Set greeting complete as soon as response generation finishes
       setGreetingComplete(true);
@@ -566,7 +768,7 @@ export default function Home() {
       // Handle synchronized speech
       if (aiResponse.synchronizedSpeech && aiResponse.synchronizedSpeech.segments.length > 0) {
         const segments = aiResponse.synchronizedSpeech.segments;
-        const urls = aiResponse.synchronizedSpeechAudioUrls || [];
+        const streams = aiResponse.synchronizedSpeechAudioStreams || [];
 
         console.group("🎬 Synchronized Speech Playback");
         console.log(`📊 Playing ${segments.length} segments`);
@@ -574,74 +776,110 @@ export default function Home() {
         // Play segments sequentially
         for (let i = 0; i < segments.length; i++) {
           const seg = segments[i];
-          const url = urls[i];
+          const stream = streams[i];
 
           console.groupCollapsed(`🎬 Segment ${i + 1}/${segments.length}`);
           console.log(`📝 Text: "${seg.text}"`);
 
-          // Show subtitle for this segment
-          showSubtitle(seg.text);
-
-          // Start animation for segment
-          if (seg.animation_on_start) {
-            const cfg = seg.animation_on_start;
-            console.group(`🎭 Starting Animation: ${cfg.type}`);
-            console.log(`🎯 Animation: ${cfg.name}`);
+          // Handle audio stream with first chunk detection
+          if (stream) {
             try {
-              let success = false;
-              if (cfg.type === "start_loop") {
-                success = (window as any).startLoopByDescription(cfg.name);
-              } else if (cfg.type === "play_once" || cfg.type === "emphasis") {
-                success = (window as any).playOnceByDescription(cfg.name);
-              }
-              console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
-            } catch (error) {
-              console.error("❌ Animation start error:", error);
-            }
-            console.groupEnd();
-          }
+              // Wait for first chunk and get the new stream
+              const audioStream = await waitForFirstChunkAndShowSubtitle(stream, seg.text);
+              // Replace the stream in the streams array for consistency
+              streams[i] = audioStream;
 
-          // Play audio or wait based on text length
-          if (url) {
-            await new Promise<void>(resolve => {
-              const audio = new Audio(url);
-              const cleanup = () => {
-                audio.removeEventListener("ended", () => resolve());
-                audio.removeEventListener("error", () => resolve());
-              };
-              audio.addEventListener("ended", () => {
-                cleanup();
-                resolve();
-              });
-              audio.addEventListener("error", () => {
-                cleanup();
-                resolve();
-              });
-              audio.play().catch(() => resolve());
-            });
+              // Start animation for segment
+              if (seg.animation_on_start) {
+                const cfg = seg.animation_on_start;
+                console.group(`🎭 Starting Animation: ${cfg.type}`);
+                console.log(`🎯 Animation: ${cfg.name}`);
+                try {
+                  let success = false;
+                  if (cfg.type === "start_loop") {
+                    success = (window as any).startLoopByDescription(cfg.name);
+                  } else if (cfg.type === "play_once" || cfg.type === "emphasis") {
+                    success = (window as any).playOnceByDescription(cfg.name);
+                  }
+                  console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
+                } catch (error) {
+                  console.error("❌ Animation start error:", error);
+                }
+                console.groupEnd();
+              }
+
+              // Play audio using the new stream
+              await playStreamAndWait(audioStream);
+
+              // End animation for segment
+              if (seg.animation_on_end) {
+                const cfg = seg.animation_on_end;
+                console.group(`🎭 Ending Animation: ${cfg.type}`);
+                if (cfg.name) console.log(`🎯 Animation: ${cfg.name}`);
+                try {
+                  let success = false;
+                  if (cfg.type === "stop_loop" || cfg.type === "return_idle") {
+                    success = (window as any).stopLoopReturnIdle();
+                  } else if (cfg.type === "play_once" && cfg.name) {
+                    success = (window as any).playOnceByDescription(cfg.name);
+                  }
+                  console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
+                } catch (error) {
+                  console.error("❌ Animation end error:", error);
+                }
+                console.groupEnd();
+              }
+            } catch (error) {
+              console.error("❌ Error processing segment:", error);
+              // Fallback: show subtitle immediately
+              showSubtitle(seg.text);
+            }
           } else {
-            const estimatedDuration = Math.max(1000, seg.text.length * 50);
-            console.warn(`⚠️ No audio URL, using estimated duration: ${estimatedDuration}ms`);
-            await new Promise(resolve => setTimeout(resolve, estimatedDuration));
-          }
+            // No audio stream, show subtitle immediately
+            showSubtitle(seg.text);
 
-          // End animation for segment
-          if (seg.animation_on_end) {
-            const cfg = seg.animation_on_end;
-            console.group(`🎭 Ending Animation: ${cfg.type}`);
-            if (cfg.name) console.log(`🎯 Animation: ${cfg.name}`);
-            try {
-              let success = false;
-              if (cfg.type === "stop_loop" || cfg.type === "return_idle") {
-                success = (window as any).stopLoopReturnIdle();
-              } else if (cfg.type === "play_once" && cfg.name) {
-                success = (window as any).playOnceByDescription(cfg.name);
+            // Start animation for segment
+            if (seg.animation_on_start) {
+              const cfg = seg.animation_on_start;
+              console.group(`🎭 Starting Animation: ${cfg.type}`);
+              console.log(`🎯 Animation: ${cfg.name}`);
+              try {
+                let success = false;
+                if (cfg.type === "start_loop") {
+                  success = (window as any).startLoopByDescription(cfg.name);
+                } else if (cfg.type === "play_once" || cfg.type === "emphasis") {
+                  success = (window as any).playOnceByDescription(cfg.name);
+                }
+                console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
+              } catch (error) {
+                console.error("❌ Animation start error:", error);
               }
-              console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
-            } catch (error) {
-              console.error("❌ Animation end error:", error);
+              console.groupEnd();
             }
-            console.groupEnd();
+
+            // Wait based on text length
+            const estimatedDuration = Math.max(1000, seg.text.length * 50);
+            console.warn(`⚠️ No audio stream, using estimated duration: ${estimatedDuration}ms`);
+            await new Promise(resolve => setTimeout(resolve, estimatedDuration));
+
+            // End animation for segment
+            if (seg.animation_on_end) {
+              const cfg = seg.animation_on_end;
+              console.group(`🎭 Ending Animation: ${cfg.type}`);
+              if (cfg.name) console.log(`🎯 Animation: ${cfg.name}`);
+              try {
+                let success = false;
+                if (cfg.type === "stop_loop" || cfg.type === "return_idle") {
+                  success = (window as any).stopLoopReturnIdle();
+                } else if (cfg.type === "play_once" && cfg.name) {
+                  success = (window as any).playOnceByDescription(cfg.name);
+                }
+                console.log(`${success ? "✅" : "❌"} Result: ${success ? "Success" : "Failed"}`);
+              } catch (error) {
+                console.error("❌ Animation end error:", error);
+              }
+              console.groupEnd();
+            }
           }
 
           console.groupEnd();
@@ -654,35 +892,87 @@ export default function Home() {
       // Handle simple animation request
       else if (aiResponse.animationRequest) {
         console.log("🎭 Animation request:", aiResponse.animationRequest);
-        showSubtitle(aiResponse.animationRequest.say);
+        const speechText = aiResponse.animationRequest.say;
 
-        if ((window as any).playAnimationByDescription) {
-          const success = (window as any).playAnimationByDescription(aiResponse.animationRequest.animationDescription);
-          console.log("🎯 Animation result:", success);
+        // Handle audio stream with first chunk detection
+        if (aiResponse.audioStream) {
+          console.log("🔊 Playing TTS audio with first chunk detection for animation");
 
-          if (success) {
-            const estimatedDuration = Math.max(2000, aiResponse.animationRequest.say.length * 100);
+          waitForFirstChunkAndShowSubtitle(aiResponse.audioStream, speechText)
+            .then(audioStream => {
+              // Now play the audio
+              playAudio(audioStream);
+            })
+            .catch(error => {
+              console.error("❌ Error waiting for first chunk in animation:", error);
+              // Fallback: show subtitle immediately
+              showSubtitle(speechText);
+            });
+
+          // Use the global playAnimationByDescription function
+          if ((window as any).playAnimationByDescription) {
+            const success = (window as any).playAnimationByDescription(
+              aiResponse.animationRequest.animationDescription
+            );
+            console.log("🎯 Animation result:", success);
+
+            if (success) {
+              const estimatedDuration = Math.max(2000, speechText.length * 100);
+              setTimeout(() => hideSubtitle(), estimatedDuration);
+            }
+          } else {
+            const estimatedDuration = Math.max(2000, speechText.length * 80);
             setTimeout(() => hideSubtitle(), estimatedDuration);
           }
         } else {
-          const estimatedDuration = Math.max(2000, aiResponse.animationRequest.say.length * 80);
-          setTimeout(() => hideSubtitle(), estimatedDuration);
+          // No audio stream, show subtitle immediately
+          showSubtitle(speechText);
+
+          // Use the global playAnimationByDescription function
+          if ((window as any).playAnimationByDescription) {
+            const success = (window as any).playAnimationByDescription(
+              aiResponse.animationRequest.animationDescription
+            );
+            console.log("🎯 Animation result:", success);
+
+            if (success) {
+              const estimatedDuration = Math.max(2000, speechText.length * 100);
+              setTimeout(() => hideSubtitle(), estimatedDuration);
+            }
+          } else {
+            const estimatedDuration = Math.max(2000, speechText.length * 80);
+            setTimeout(() => hideSubtitle(), estimatedDuration);
+          }
         }
       }
       // Handle simple speech
       else {
         const speechText = aiResponse.backgroundRequest?.say || aiResponse.response;
         console.log("💬 Simple speech:", speechText);
-        showSubtitle(speechText);
 
-        // Play TTS audio if available
-        if (aiResponse.audioUrl) {
-          console.log("🔊 Playing TTS audio");
-          playAudio(aiResponse.audioUrl);
+        // Play TTS audio if available with first chunk detection
+        if (aiResponse.audioStream) {
+          console.log("🔊 Playing TTS audio with first chunk detection");
+
+          waitForFirstChunkAndShowSubtitle(aiResponse.audioStream, speechText)
+            .then(audioStream => {
+              // Now play the audio
+              playAudio(audioStream);
+            })
+            .catch(error => {
+              console.error("❌ Error waiting for first chunk in greeting:", error);
+              // Fallback: show subtitle immediately
+              showSubtitle(speechText);
+            });
+
+          const estimatedDuration = Math.max(2000, speechText.length * 80);
+          setTimeout(() => hideSubtitle(), estimatedDuration);
+        } else {
+          // No audio, show subtitle immediately
+          showSubtitle(speechText);
+          const estimatedDuration = Math.max(2000, speechText.length * 80);
+          setTimeout(() => hideSubtitle(), estimatedDuration);
         }
-
-        const estimatedDuration = Math.max(2000, speechText.length * 80);
-        setTimeout(() => hideSubtitle(), estimatedDuration);
       }
 
       console.timeEnd("AI Response Time");

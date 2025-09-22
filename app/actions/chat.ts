@@ -18,7 +18,7 @@ function buildSystemPrompt(availableAnimations: string[]): string {
   if (FLAGS.ENABLE_SIMPLE_ANIMATION) enabledTools.push("1. request_animation - Simple one-time animation with speech");
   if (FLAGS.ENABLE_SYNCHRONIZED_ANIMATION)
     enabledTools.push(
-      "2. speak_with_synchronized_animation - Advanced: Control animations precisely during speech segments"
+      "2. speak_with_synchronized_animation - Advanced: Control animations precisely during speech segments. Keep segments shorter than 10 words."
     );
   if (FLAGS.ENABLE_BACKGROUND_GENERATION)
     enabledTools.push("3. change_background - Generate and change the background environment");
@@ -282,16 +282,13 @@ export interface SynchronizedSpeech {
   segments: SpeechSegment[];
 }
 
-export async function generateTTS(text: string): Promise<string | null> {
+export async function generateTTS(text: string): Promise<ReadableStream<Uint8Array> | null> {
   try {
-    console.log(`🔊 Generating TTS for: "${text.substring(0, 50)}..."`);
-
     // Use Fish Audio TTS instead of OpenAI
-    const audioUrl = await generateFishAudioTTS(text);
+    const audioStream = await generateFishAudioTTS(text);
 
-    if (audioUrl) {
-      console.log(`✅ Fish Audio TTS generated successfully`);
-      return audioUrl;
+    if (audioStream) {
+      return audioStream;
     } else {
       console.log(`⚠️ Fish Audio TTS failed`);
       console.log(`   Fish Audio issues are typically due to:`);
@@ -324,9 +321,9 @@ export async function chatWithAI(
   response: string;
   animationRequest?: AnimationRequest;
   backgroundRequest?: BackgroundRequest;
-  audioUrl?: string;
+  audioStream?: ReadableStream<Uint8Array>;
   synchronizedSpeech?: SynchronizedSpeech;
-  synchronizedSpeechAudioUrls?: string[];
+  synchronizedSpeechAudioStreams?: ReadableStream<Uint8Array>[];
 }> {
   try {
     // Create the system message with animation tools
@@ -338,32 +335,39 @@ export async function chatWithAI(
     // Add system message to the beginning
     const allMessages = [systemMessage, ...messages];
 
-    const response = await openai.chat.completions.create({
-      model: "openai/gpt-4.1-mini",
-      messages: allMessages,
-      tools: buildToolsArray(),
-      tool_choice: "auto",
+    const startTime = Date.now();
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY ?? ""}`,
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-oss-120b",
+        messages: allMessages,
+        tools: buildToolsArray(),
+        tool_choice: "auto",
+        provider: {
+          order: ["cerebras", "groq"],
+          allow_fallbacks: true,
+        },
+      }),
+    }).then(async res => {
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`OpenRouter API error: ${res.status} ${res.statusText} - ${errorText}`);
+      }
+      return res.json();
     });
+    const endTime = Date.now();
+    console.log(`⏱️ openai.chat.completions.create took ${endTime - startTime}ms`);
 
     const message = response.choices[0].message;
-
-    // Log the raw LLM response for debugging
-    console.log("🤖 LLM Response:", {
-      content: message.content,
-      tool_calls: message.tool_calls?.map(tc =>
-        tc.type === "function"
-          ? {
-              function_name: tc.function?.name,
-              arguments: tc.function?.arguments,
-            }
-          : tc
-      ),
-    });
 
     let animationRequest: AnimationRequest | undefined;
     let backgroundRequest: BackgroundRequest | undefined;
     let synchronizedSpeech: SynchronizedSpeech | undefined;
-    let synchronizedSpeechAudioUrls: string[] | undefined;
+    let synchronizedSpeechAudioStreams: ReadableStream<Uint8Array>[] | undefined;
 
     // Check if the AI wants to use tools
     if (message.tool_calls && message.tool_calls.length > 0) {
@@ -414,24 +418,24 @@ export async function chatWithAI(
     }
 
     // If synchronized speech is present, generate per-segment TTS here
-    let audioUrl: string | null = null;
+    let audioStream: ReadableStream<Uint8Array> | null = null;
     const textToSpeak = synchronizedSpeech
       ? ""
       : animationRequest?.say || backgroundRequest?.say || message.content || "";
 
     if (FLAGS.ENABLE_TTS_GENERATION && textToSpeak.trim()) {
-      audioUrl = await generateTTS(textToSpeak);
+      audioStream = await generateTTS(textToSpeak);
     }
 
     if (FLAGS.ENABLE_TTS_GENERATION && synchronizedSpeech && synchronizedSpeech.segments.length > 0) {
       // Generate TTS for all segments in parallel for better performance
       console.log(`🔊 Generating TTS for ${synchronizedSpeech.segments.length} segments...`);
       const ttsPromises = synchronizedSpeech.segments.map(seg => generateTTS(seg.text));
-      const urls = await Promise.all(ttsPromises);
-      synchronizedSpeechAudioUrls = urls.map(url => url || "");
+      const streams = await Promise.all(ttsPromises);
+      synchronizedSpeechAudioStreams = streams.filter(stream => stream !== null) as ReadableStream<Uint8Array>[];
       console.log("🔊 TTS generation complete:", {
-        successCount: urls.filter(url => url).length,
-        totalSegments: urls.length,
+        successCount: synchronizedSpeechAudioStreams.length,
+        totalSegments: streams.length,
       });
     }
 
@@ -439,20 +443,20 @@ export async function chatWithAI(
       response: message.content || (synchronizedSpeech ? synchronizedSpeech.segments.map(s => s.text).join(" ") : ""),
       animationRequest,
       backgroundRequest,
-      audioUrl: audioUrl || undefined,
+      audioStream: audioStream || undefined,
       synchronizedSpeech,
-      synchronizedSpeechAudioUrls,
+      synchronizedSpeechAudioStreams,
     };
 
     console.log("✅ Final AI response structure:", {
       hasResponse: !!finalResponse.response,
       hasAnimationRequest: !!finalResponse.animationRequest,
       hasBackgroundRequest: !!finalResponse.backgroundRequest,
-      hasAudioUrl: !!finalResponse.audioUrl,
+      hasAudioStream: !!finalResponse.audioStream,
       hasSynchronizedSpeech: !!finalResponse.synchronizedSpeech,
       synchronizedSegments: finalResponse.synchronizedSpeech?.segments.length || 0,
-      hasSegmentAudioUrls: !!finalResponse.synchronizedSpeechAudioUrls,
-      segmentAudioUrlsCount: finalResponse.synchronizedSpeechAudioUrls?.length || 0,
+      hasSegmentAudioStreams: !!finalResponse.synchronizedSpeechAudioStreams,
+      segmentAudioStreamsCount: finalResponse.synchronizedSpeechAudioStreams?.length || 0,
     });
 
     return finalResponse;

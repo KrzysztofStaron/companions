@@ -2,7 +2,7 @@
 
 import { Session, TTSRequest } from "fish-audio-sdk";
 
-export async function generateFishAudioTTS(text: string): Promise<string | null> {
+export async function generateFishAudioTTS(text: string): Promise<ReadableStream<Uint8Array> | null> {
   try {
     const apiKey = process.env.FISH_API_KEY;
     const modelId = process.env.MODEL_ID;
@@ -23,37 +23,42 @@ export async function generateFishAudioTTS(text: string): Promise<string | null>
       format: "mp3",
       latency: "balanced",
       referenceId: modelId, // Use custom model if provided
+      modelId: "s1",
       prosody: {
         speed: 1.0,
         volume: 1.0,
       },
     });
 
-    // Generate audio chunks
-    const audioChunks: Buffer[] = [];
+    // Create a ReadableStream to stream audio chunks
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        // Start generating TTS and enqueue chunks as they arrive
+        (async () => {
+          try {
+            for await (const chunk of session.tts(request)) {
+              controller.enqueue(new Uint8Array(chunk));
+              console.log(`🔊 Enqueued audio chunk: ${chunk.length} bytes`);
+            }
+            controller.close();
+            console.log(`✅ Fish Audio TTS stream completed`);
+          } catch (error) {
+            console.error("❌ Error in TTS stream:", error);
+            controller.error(error);
+          } finally {
+            // Always close the session
+            session.close();
+          }
+        })();
+      },
+      cancel() {
+        // Handle stream cancellation
+        console.log("🔊 TTS stream cancelled");
+        session.close();
+      },
+    });
 
-    try {
-      for await (const chunk of session.tts(request)) {
-        audioChunks.push(chunk);
-        //console.log(`🔊 Received audio chunk: ${chunk.length} bytes`);
-      }
-    } finally {
-      // Always close the session
-      session.close();
-    }
-
-    if (audioChunks.length > 0) {
-      // Concatenate all chunks and convert to base64 data URL
-      const fullAudio = Buffer.concat(audioChunks);
-      const base64Audio = fullAudio.toString("base64");
-      const audioUrl = `data:audio/mpeg;base64,${base64Audio}`;
-
-      console.log(`✅ Fish Audio TTS generated successfully (${fullAudio.length} bytes)`);
-      return audioUrl;
-    } else {
-      console.error("❌ Fish Audio TTS failed: No audio data received");
-      return null;
-    }
+    return stream;
   } catch (error: any) {
     console.error("❌ Fish Audio TTS error:", error);
 
