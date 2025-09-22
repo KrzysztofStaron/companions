@@ -861,6 +861,7 @@ export default function Home() {
                 }
               }}
               disabled={isLoading || !animationSystemReady}
+              spellCheck={false}
               rows={1}
               className="flex-1 min-w-0 py-2 pr-2 bg-transparent border-none outline-none
                        text-white placeholder-white/60 text-lg disabled:opacity-50 resize-none

@@ -114,8 +114,9 @@ export default function ChatInterface({ availableAnimations, onAnimationRequest,
           onChange={e => setInputValue(e.target.value)}
           placeholder="Type your message..."
           disabled={isLoading}
-          className="w-full px-6 py-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl 
-                   text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 
+          spellCheck={false}
+          className="w-full px-6 py-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl
+                   text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30
                    focus:border-white/40 transition-all duration-300 ease-out
                    hover:bg-white/15 hover:border-white/30 disabled:opacity-50"
         />
