@@ -14,6 +14,9 @@ OPENROUTER_API_KEY=your_openrouter_api_key_here
 FISH_API_KEY=your_fish_audio_api_key_here
 MODEL_ID=your_fish_audio_model_id_here
 
+# Replicate API Token for image generation (Google Imagen 4 Fast)
+REPLICATE_API_TOKEN=your_replicate_api_token_here
+
 # Site URL for OpenRouter HTTP-Referer header (optional)
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
@@ -31,6 +34,15 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 2. Upload a reference audio file or choose a model from the playground
 3. Get the model ID from the Fish Audio dashboard
 4. Add both `FISH_API_KEY` and `MODEL_ID` to your `.env.local` file
+
+#### Replicate Setup (Image Generation)
+
+1. Get your API token from [Replicate](https://replicate.com/)
+2. Create an account and navigate to your account settings
+3. Copy your API token from the dashboard
+4. Add `REPLICATE_API_TOKEN` to your `.env.local` file
+
+The app uses Replicate's Google Imagen 4 Fast model for high-quality background image generation. If Replicate fails, it automatically falls back to Google Gemini through OpenRouter.
 
 The app uses Fish Audio as the primary and only TTS provider. Chat functionality is powered by OpenRouter using the gpt-4.1-nano-2025-04-14 model for cost-effective conversations.
 
