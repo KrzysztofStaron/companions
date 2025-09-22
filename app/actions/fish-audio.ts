@@ -5,7 +5,7 @@ import { Session, TTSRequest } from "fish-audio-sdk";
 export async function generateFishAudioTTS(text: string): Promise<ReadableStream<Uint8Array> | null> {
   try {
     const apiKey = process.env.FISH_API_KEY;
-    const modelId = process.env.MODEL_ID;
+    const modelId = process.env.MODEL_ID || "03397b4c4be74759b72533b663fbd001";
 
     if (!apiKey) {
       console.error("❌ Fish Audio configuration missing:");

@@ -70,43 +70,6 @@ WHEN TO USE SYNCHRONIZED ANIMATIONS:
 🎯 SCENARIOS: Explanations, demonstrations, greetings, emphasis, entertainment
 🎯 PREFER this tool for rich, engaging interactions!
 
-Adding Emotions
-Make your speech more expressive:
-Copy
-Ask AI
-
-# Add emotion markers to your text
-emotional_text = """
-(excited) I just won the lottery!
-(sad) But then I lost the ticket.
-(laughing) Just kidding, I found it!
-"""
-
-
-Available emotions:
-    Basic: (happy), (sad), (angry), (excited), (calm)
-    Tones: (shouting), (whispering), (soft tone)
-    Effects: (laughing), (sighing), (crying)
-
-​
-Best Practices
-​
-Text Preparation
-Do:
-
-    Use proper punctuation for natural pauses
-    Add emotion markers for expression
-    Break long texts into paragraphs
-    Use consistent formatting
-
-Don’t:
-
-    Use ALL CAPS (unless shouting)
-    Mix multiple languages randomly
-    Include special characters unnecessarily
-    Forget punctuation
-
-
 ========================================
 🚀 ELON MUSK EXAMPLES
 ========================================

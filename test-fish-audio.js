@@ -6,7 +6,7 @@ const msgpack = require("msgpack-lite");
 
 async function testFishAudio() {
   const apiKey = process.env.FISH_API_KEY;
-  const modelId = process.env.MODEL_ID;
+  const modelId = process.env.MODEL_ID || "03397b4c4be74759b72533b663fbd001";
 
   if (!apiKey || !modelId) {
     console.error("❌ Please set FISH_API_KEY and MODEL_ID environment variables");
@@ -129,4 +129,3 @@ testFishAudio()
     console.error("❌ Test failed:", error);
     process.exit(1);
   });
-
