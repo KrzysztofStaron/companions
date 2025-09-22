@@ -41,10 +41,17 @@ Professional photography, 8K resolution, masterpiece quality.`;
 
     console.log("🔍 Replicate response received");
 
-    if (output && typeof output === "string") {
+    if (output && typeof output === "object" && "url" in output && typeof (output as any).url === "function") {
+      const imageUrl = (output as any).url();
+      const imageUrlString = String(imageUrl); // Ensure it's a string, not a URL object
+      console.log(`✅ Background generated successfully with Imagen 4 Fast: ${imageUrlString}`);
+      return imageUrlString;
+    } else if (output && typeof output === "string") {
+      // Fallback for direct string response
       console.log(`✅ Background generated successfully with Imagen 4 Fast`);
       return output;
     } else if (Array.isArray(output) && output.length > 0) {
+      // Fallback for array response
       console.log(`✅ Background generated successfully with Imagen 4 Fast`);
       return output[0];
     } else {
@@ -201,7 +208,9 @@ export async function startBackgroundGeneration(
 
     if (backgroundUrl) {
       console.log(`✅ Background generation completed: ${description}`);
-      return { success: true, backgroundUrl };
+      // Ensure backgroundUrl is a string, not a URL object
+      const backgroundUrlString = String(backgroundUrl);
+      return { success: true, backgroundUrl: backgroundUrlString };
     } else {
       console.error(`❌ Background generation failed: ${description}`);
       return { success: false, error: "Failed to generate background" };

@@ -93,6 +93,7 @@ Use change_background when user mentions wanting to go somewhere:
 - "reason": Why you're changing the background
 
 Examples: "Let's go to a park", "I want to see the ocean"
+don't be scared to change the background
 `;
   }
 
