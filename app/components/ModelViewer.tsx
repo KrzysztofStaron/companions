@@ -462,10 +462,12 @@ export default function ModelViewer({
   showDebugUI = false,
   isListening = false,
   backgroundUrl = null,
+  onAnimationLoadingChange,
 }: {
   showDebugUI?: boolean;
   isListening?: boolean;
   backgroundUrl?: string | null;
+  onAnimationLoadingChange?: (loading: boolean) => void;
 }) {
   const [currentAnimationIndex, setCurrentAnimationIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -474,6 +476,11 @@ export default function ModelViewer({
   const orbitControlsRef = useRef<any>(null);
   const [animationError, setAnimationError] = useState<string | null>(null);
   const [animationLoading, setAnimationLoading] = useState(true);
+
+  // Notify parent of animation loading state changes
+  useEffect(() => {
+    onAnimationLoadingChange?.(animationLoading);
+  }, [animationLoading, onAnimationLoadingChange]);
   const [isRotating, setIsRotating] = useState(false);
   const returnToCenterRef = useRef<number | null>(null);
   const [cameraRotation, setCameraRotation] = useState({ azimuthal: 0, polar: 0 });
@@ -719,7 +726,7 @@ export default function ModelViewer({
         <div className="absolute top-4 left-4 text-red-500 bg-black/50 p-2 rounded z-50">Error: {animationError}</div>
       )}
 
-      {animationLoading && (
+      {false && animationLoading && (
         <div className="absolute top-4 left-4 text-yellow-500 bg-black/50 p-2 rounded z-50">Loading animations...</div>
       )}
 

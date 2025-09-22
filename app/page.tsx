@@ -19,6 +19,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [animationSystemReady, setAnimationSystemReady] = useState(false);
+  const [animationsLoading, setAnimationsLoading] = useState(true);
+  const [firstAudioReady, setFirstAudioReady] = useState(false);
   const [isInIdleState, setIsInIdleState] = useState(false);
   const [idleCycleTimer, setIdleCycleTimer] = useState<NodeJS.Timeout | null>(null);
   const [animationState, setAnimationState] = useState<any>(null);
@@ -73,7 +75,13 @@ export default function Home() {
   // Subtitle state management
   const [currentSubtitleText, setCurrentSubtitleText] = useState("");
   const [isSubtitleVisible, setIsSubtitleVisible] = useState(false);
-  const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
+
+  // Handler for animation loading state changes
+  const handleAnimationLoadingChange = (loading: boolean) => {
+    console.log(`🎬 Animation loading state changed: ${loading ? "loading" : "ready"}`);
+    setAnimationsLoading(loading);
+  };
 
   // Helper functions for subtitle management
   const showSubtitle = (text: string) => {
@@ -246,7 +254,7 @@ export default function Home() {
   // The AnimationStateMachine handles idle cycling automatically
 
   const handleInputSubmit = async () => {
-    if (inputValue.trim() && !isLoading && animationSystemReady) {
+    if (inputValue.trim() && !isLoading && animationSystemReady && !animationsLoading) {
       console.group("💬 User Input Processing");
       console.log(`📝 User message: "${inputValue.trim()}"`);
       console.time("AI Response Time");
@@ -276,7 +284,8 @@ export default function Home() {
             throw new Error("Stream ended before first chunk");
           }
 
-          // Show subtitle when first chunk arrives
+          // Mark first audio as ready and show subtitle when first chunk arrives
+          setFirstAudioReady(true);
           showSubtitle(text);
 
           // Collect all remaining chunks
@@ -473,11 +482,13 @@ export default function Home() {
                     console.groupEnd();
                   } catch (error) {
                     console.error("❌ Error processing segment:", error);
-                    // Fallback: show subtitle immediately
+                    // Fallback: mark audio ready and show subtitle immediately
+                    setFirstAudioReady(true);
                     showSubtitle(seg.text);
                   }
                 } else {
-                  // No audio stream, show subtitle immediately
+                  // No audio stream, mark audio ready and show subtitle immediately
+                  setFirstAudioReady(true);
                   showSubtitle(seg.text);
 
                   // Start animation for segment
@@ -597,7 +608,8 @@ export default function Home() {
             })
             .catch(error => {
               console.error("❌ Error waiting for first chunk:", error);
-              // Fallback: show subtitle immediately
+              // Fallback: mark audio ready and show subtitle immediately
+              setFirstAudioReady(true);
               if (speechText) {
                 showSubtitle(speechText);
               }
@@ -611,7 +623,8 @@ export default function Home() {
             }, estimatedDuration);
           }
         } else if (!aiResponse.synchronizedSpeech) {
-          // No audio, hide subtitle after a shorter delay for simple speech
+          // No audio, mark audio ready and hide subtitle after a shorter delay for simple speech
+          setFirstAudioReady(true);
           const speechText =
             aiResponse.animationRequest?.say || aiResponse.backgroundRequest?.say || aiResponse.response;
           const estimatedDuration = Math.max(2000, speechText.length * 80); // ~80ms per character without audio
@@ -668,7 +681,8 @@ export default function Home() {
           throw new Error("Stream ended before first chunk");
         }
 
-        // Show subtitle when first chunk arrives
+        // Mark first audio as ready and show subtitle when first chunk arrives
+        setFirstAudioReady(true);
         showSubtitle(text);
 
         // Collect all remaining chunks
@@ -831,11 +845,13 @@ export default function Home() {
               }
             } catch (error) {
               console.error("❌ Error processing segment:", error);
-              // Fallback: show subtitle immediately
+              // Fallback: mark audio ready and show subtitle immediately
+              setFirstAudioReady(true);
               showSubtitle(seg.text);
             }
           } else {
-            // No audio stream, show subtitle immediately
+            // No audio stream, mark audio ready and show subtitle immediately
+            setFirstAudioReady(true);
             showSubtitle(seg.text);
 
             // Start animation for segment
@@ -905,7 +921,8 @@ export default function Home() {
             })
             .catch(error => {
               console.error("❌ Error waiting for first chunk in animation:", error);
-              // Fallback: show subtitle immediately
+              // Fallback: mark audio ready and show subtitle immediately
+              setFirstAudioReady(true);
               showSubtitle(speechText);
             });
 
@@ -925,7 +942,8 @@ export default function Home() {
             setTimeout(() => hideSubtitle(), estimatedDuration);
           }
         } else {
-          // No audio stream, show subtitle immediately
+          // No audio stream, mark audio ready and show subtitle immediately
+          setFirstAudioReady(true);
           showSubtitle(speechText);
 
           // Use the global playAnimationByDescription function
@@ -961,14 +979,16 @@ export default function Home() {
             })
             .catch(error => {
               console.error("❌ Error waiting for first chunk in greeting:", error);
-              // Fallback: show subtitle immediately
+              // Fallback: mark audio ready and show subtitle immediately
+              setFirstAudioReady(true);
               showSubtitle(speechText);
             });
 
           const estimatedDuration = Math.max(2000, speechText.length * 80);
           setTimeout(() => hideSubtitle(), estimatedDuration);
         } else {
-          // No audio, show subtitle immediately
+          // No audio, mark audio ready and show subtitle immediately
+          setFirstAudioReady(true);
           showSubtitle(speechText);
           const estimatedDuration = Math.max(2000, speechText.length * 80);
           setTimeout(() => hideSubtitle(), estimatedDuration);
@@ -988,9 +1008,9 @@ export default function Home() {
   // Auto-greet once animations are fully ready - RUNS ONLY ONCE
   useEffect(() => {
     // Early return if already sent greeting or not ready
-    if (hasSentGreeting || !animationSystemReady) return;
+    if (hasSentGreeting || !animationSystemReady || animationsLoading) return;
 
-    console.log("🎉 Animation system ready! Preparing to send greeting...");
+    console.log("🎉 Animation system and animations ready! Preparing to send greeting...");
 
     // Simple delay then call greeting function directly
     const greetingTimer = setTimeout(() => {
@@ -998,12 +1018,12 @@ export default function Home() {
     }, 2000);
 
     return () => clearTimeout(greetingTimer);
-  }, [animationSystemReady, hasSentGreeting]);
+  }, [animationSystemReady, animationsLoading, hasSentGreeting]);
 
   return (
     <div className="relative w-full h-screen">
       {/* Dark Loading Screen */}
-      {!greetingComplete && (
+      {(!greetingComplete || !firstAudioReady) && (
         <div className="absolute inset-0 z-50 bg-black flex items-center justify-center">
           <div className="text-center text-white">
             <div className="mb-8">
@@ -1011,11 +1031,15 @@ export default function Home() {
             </div>
             <h2 className="text-2xl font-light mb-4">Initializing AI Companion</h2>
             <p className="text-white/60 text-sm">
-              {animationSystemReady
-                ? hasSentGreeting
-                  ? "Greeting you..."
-                  : "Preparing greeting..."
-                : "Loading animations..."}
+              {animationsLoading
+                ? "Loading animations..."
+                : !animationSystemReady
+                ? "Initializing system..."
+                : !hasSentGreeting
+                ? "Preparing greeting..."
+                : !firstAudioReady
+                ? "Loading audio system..."
+                : "Greeting you..."}
             </p>
           </div>
         </div>
@@ -1025,6 +1049,7 @@ export default function Home() {
         showDebugUI={showDebugUI && isDevelopment}
         isListening={isListening}
         backgroundUrl={currentBackgroundUrl}
+        onAnimationLoadingChange={handleAnimationLoadingChange}
       />
 
       {/* Animation State Machine for managing idle cycling */}
@@ -1139,8 +1164,10 @@ export default function Home() {
             <textarea
               ref={textareaRef}
               placeholder={
-                !animationSystemReady
-                  ? "Loading animation system..."
+                animationsLoading
+                  ? "Loading animations..."
+                  : !animationSystemReady
+                  ? "Initializing system..."
                   : isLoading
                   ? "AI is thinking..."
                   : "Chat with AI to see animations..."
@@ -1153,7 +1180,7 @@ export default function Home() {
                   handleInputSubmit();
                 }
               }}
-              disabled={isLoading || !animationSystemReady}
+              disabled={isLoading || !animationSystemReady || animationsLoading}
               spellCheck={false}
               rows={1}
               className="flex-1 min-w-0 py-2 pr-2 bg-transparent border-none outline-none
@@ -1181,13 +1208,13 @@ export default function Home() {
             />
             <button
               onClick={handleInputSubmit}
-              disabled={isLoading || !animationSystemReady || !inputValue.trim()}
+              disabled={isLoading || !animationSystemReady || animationsLoading || !inputValue.trim()}
               className={`
                 ${hasMultipleLines ? "p-2" : "p-3"} m-0 shrink-0 transition-all duration-200
                 ${hasMultipleLines ? "self-end" : "self-center"}
                 ${hasMultipleLines ? "mb-0" : "mr-0.5"}
                 ${
-                  isLoading || !animationSystemReady || !inputValue.trim()
+                  isLoading || !animationSystemReady || animationsLoading || !inputValue.trim()
                     ? "bg-transparent opacity-30 cursor-not-allowed"
                     : "bg-white/20 backdrop-blur-sm opacity-70 hover:opacity-100 hover:scale-105"
                 }
