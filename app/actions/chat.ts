@@ -339,7 +339,7 @@ export async function chatWithAI(
     const allMessages = [systemMessage, ...messages];
 
     const response = await openai.chat.completions.create({
-      model: "openai/gpt-4o",
+      model: "openai/gpt-4.1-mini",
       messages: allMessages,
       tools: buildToolsArray(),
       tool_choice: "auto",

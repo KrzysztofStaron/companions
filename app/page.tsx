@@ -529,7 +529,10 @@ export default function Home() {
       };
 
       // Get AI response with animation request
-      const aiResponse = await chatWithAI([userMessage], availableAnimations);
+      const aiResponse = await chatWithAI([userMessage], availableAnimations, true);
+
+      // Set greeting complete as soon as response generation finishes
+      setGreetingComplete(true);
 
       // Add AI response to chat
       const assistantMessage: ChatMessage = {
